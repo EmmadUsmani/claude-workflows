@@ -1,0 +1,5 @@
+.DS_Store
+.ruby-lsp/
+*.local.*
+.env*
+node_modules/

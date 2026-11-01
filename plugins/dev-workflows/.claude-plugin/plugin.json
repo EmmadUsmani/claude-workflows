@@ -1,0 +1,8 @@
+{
+  "name": "dev-workflows",
+  "description": "Company-agnostic Claude Code engineering workflows: shipping and triaging PRs, stacked-PR surgery, worktrees and local dev recovery, in-app verification, guarded production investigation, bug intake, sandbox tooling, research docs, visual explainers and one-pagers, writing, and multi-agent delegation",
+  "version": "1.0.0",
+  "author": {
+    "name": "Emmad Usmani"
+  }
+}

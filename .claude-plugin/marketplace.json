@@ -1,0 +1,19 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "claude-workflows",
+  "description": "Personal, company-agnostic Claude Code plugins and workflows",
+  "owner": {
+    "name": "Emmad Usmani"
+  },
+  "plugins": [
+    {
+      "name": "dev-workflows",
+      "description": "Engineering workflows distilled from real Claude Code sessions — ship-pr, pr-triage, stack-surgery, gh-stack, deep-pr-review, pr-review-graph, code-style, worktree-create, worktree-dev-server, dev-doctor, verify-in-app, bug-intake, warehouse-data, prod-script, vendor-api-probe, render-pipeline-debug, firefighter-loop, cloud-agent-work, cloud-runtime, demo-video, sandbox-tool, research-doc, visual-explainer, one-pager, slack-message, status-update, daily-summary, agent-team, mine-sessions",
+      "author": {
+        "name": "Emmad Usmani"
+      },
+      "source": "./plugins/dev-workflows",
+      "category": "development"
+    }
+  ]
+}
