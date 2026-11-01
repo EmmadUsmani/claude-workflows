@@ -1,0 +1,65 @@
+{
+  "_comment": "Example Claude Code cloud routine (claude.ai/code) that runs the firefighter sweep hourly overnight. Every <...> is yours to fill. The cron is UTC-fixed: pick the hours that cover your own overnight window in your timezone (`0 10-17 * * *` is just an example — eight hourly fires) and, if your timezone observes daylight saving, remember the window shifts by an hour twice a year. Create it with the `schedule` skill: {action: 'create', body: <this object minus _comment>}. Replace events[].data.uuid with a fresh lowercase v4 uuid per create, and fill mcp_connections from your own connected connectors (the chat connector is required; a warehouse connector is optional). Prerequisites: GitHub connected on claude.ai with access to all three repos; the state repo seeded with `ff.rb init --profile cloud` and a filled-in config.json (commit both); `dryrun/` gitignored there. Created disabled on purpose: enable it after a manual dry run.",
+  "name": "firefighter-loop (overnight sweep)",
+  "cron_expression": "0 10-17 * * *",
+  "enabled": false,
+  "mcp_connections": [
+    {
+      "connector_uuid": "<your chat connector uuid>",
+      "name": "Slack",
+      "url": "<the connector's MCP url>"
+    }
+  ],
+  "job_config": {
+    "ccr": {
+      "environment_id": "<your cloud environment id>",
+      "session_context": {
+        "model": "<an Opus model id>",
+        "sources": [
+          {
+            "git_repository": {
+              "url": "https://github.com/<owner>/<app-repo>"
+            }
+          },
+          {
+            "git_repository": {
+              "url": "https://github.com/<owner>/<plugins-repo>"
+            }
+          },
+          {
+            "git_repository": {
+              "url": "https://github.com/<owner>/<state-repo>"
+            }
+          }
+        ],
+        "allowed_tools": [
+          "Bash",
+          "Read",
+          "Write",
+          "Edit",
+          "Glob",
+          "Grep",
+          "Agent",
+          "ToolSearch",
+          "SendMessage",
+          "TaskStop",
+          "WebFetch"
+        ]
+      },
+      "events": [
+        {
+          "data": {
+            "uuid": "00000000-0000-4000-8000-000000000000",
+            "session_id": "",
+            "type": "user",
+            "parent_tool_use_id": null,
+            "message": {
+              "role": "user",
+              "content": "You are running the user's `firefighter-loop` skill in CLOUD mode as an unattended hourly routine. You have zero prior context; everything you need is in the checked-out repos.\n\nSETUP\n1. Locate the three checkouts (the app repo, the plugins repo, the state repo); use absolute paths everywhere (Bash cwd resets between calls).\n2. Read, fully: the plugins repo's `skills/firefighter-loop/SKILL.md` and its `REFERENCE.md`; `skills/cloud-runtime/SKILL.md`; `skills/bug-intake/SKILL.md` (for dispatch briefs); `skills/warehouse-data/SKILL.md` (prod reads). Also read the plugins repo's personal CLAUDE.md template if present and follow its rules except where the firefighter skill states an explicit exception.\n3. `git -C <state repo> pull --rebase`. The state dir for this run is that checkout: pass `--state-dir <that path>` to every `scripts/ff.rb` call — the day dir derives from it as `<that path>/days/<date>`, so never pass `--day-dir`. This is the SAME repo the laptop loop uses, so `state.json` may already carry items and watermarks from a local tick: respect them, never re-init over them. If `state.json` is missing, `ruby ff.rb init --profile cloud` there. Run `ruby ff.rb config check`; if it fails, STOP and report (never guess a channel or user id). Then `ruby ff.rb set profile cloud`, `set scheduler routine`, `set mode sweep`.\n4. `ToolSearch` the chat MCP tools before using them, and the warehouse tool if one is configured (probe it with a trivial query) — if the warehouse is unavailable, note it in LOG.md and continue; agents then mark prod facts `[PENDING]`. If the chat tools are unavailable, or any of the three repos is missing, STOP: write the failure to `days/<date>/LOG.md`, sync the state repo, and end with a clear final message. Do not improvise around a missing dependency.\n\nRUN\n5. Execute `sweep --since 2h --profile cloud --autonomous` exactly as the skill specifies: read every channel in config.json `watch.channels` since its watermark (floor at now-2h), run the mention search for config `self.user_id`, follow the skill's on-call mode at its `--oncall auto` default (an overnight fire before the rotation announcement simply finds none for today and stays inactive, which is correct — never force it on), apply the filters and acknowledgement rules (a reaction or reply BY the user, later than the message, acknowledges it; nobody else's does — but an acknowledged item that would otherwise dispatch is NOT dropped: park it `acked` via ff.rb and list it in that day's ask DM thread, and apply any answers the user already left in open ask threads with `ff.rb asks` / `ff.rb decide` — thread replies first, then the ask reaction on an open item's own ask line, which means loop (a reply always beats a reaction) — dispatching the ones answered `loop`), poll live items' threads directly, classify, dispatch one Opus `general-purpose` agent per actionable thread with the REFERENCE dispatch brief (`bug-intake --autonomous --to <verdict|remediate|fix>`), forward new replies to owning agents, harvest reports, DM the user on pickup and at every pause/terminal state, write LOG.md rows via ff.rb, regenerate `dashboard.html` with `scripts/dashboard.rb` (skip the Artifact publish if the tool is unavailable), and finish with ONE sweep-summary DM.\n6. Cloud degradation (cloud-runtime skill): no dev server, no database unless provisioned, no browser, no local sandbox dir, no notes vault. Agents work in worktrees of the app checkout created and provisioned per the `worktree-create` skill (as far as the cloud environment allows — see cloud-runtime); branches use config `dispatch.branch_prefix`; every claim that would need local repro is labeled `[UNVERIFIED — needs local repro]`; any PR opens READY-FOR-REVIEW via `gh` with the body starting with exactly:\n> [!WARNING]\n> Opened autonomously by /firefighter-loop from <permalink>. Not yet reviewed by a human — the agent will not merge or approve it.\nfollowed by a line `UNVERIFIED in-app (cloud run)` when the run could not drive the app. Never merge, approve, or request reviewers. Artifacts (RCA markdown/HTML, drafted prod scripts, reply drafts) go under `<state repo>/artifacts/<date>-<slug>/`.\n\nHARD LIMITS\n- Chat: read-only in every channel — no replies, no reactions, no drafts. The ONLY write is a DM to the user (config `self.dm_channel_id`, else `self.user_id`), threaded per item.\n- Production: no live access, ever. No production console, no admin sign-in, no impersonation, no writes. Prod reads go to the warehouse first (`warehouse-data` skill; agents may query it directly, read-only), then the team's read-only ops bot if one is configured; only facts neither can supply become DRAFTED scripts for the user, labeled `[PENDING — needs prod script <path>]`, and you proceed on the best hypothesis. Writes are always a drafted `prod-script` repair.\n- Agents: Opus for investigations, Sonnet for cheap classification only.\n- Never read `.env*` files. No customer or account identifiers in artifact filenames or the dashboard.\n- Do not exceed config `dispatch.max_per_tick` dispatches this run or `dispatch.live_cap` live agents.\n\nFINISH\n7. Wait for dispatched agents to report (they must `SendMessage` main); an idle notification is not a report — read their `verification-notes.md` and `git diff` if needed.\n8. Publish the state repo with `ruby <scripts/ff.rb> --state-dir <state repo> sync '<message>'`, message `sweep <UTC time>: <n> new, <n> dispatched` — do NOT hand-roll the git. `sync` does `pull --rebase --autostash`, ONE scoped commit and `push`, retrying once on a rejection. **Exit 1 means the push failed: put the watermarks back where this run found them and say so in the summary DM.** Never `push --force`.\n9. End with a final message listing: items seen/classified/dispatched, PRs opened, DMs sent, `[UNVERIFIED]`/`[PENDING]` items, and anything the skill text left ambiguous."
+            }
+          }
+        }
+      ]
+    }
+  }
+}

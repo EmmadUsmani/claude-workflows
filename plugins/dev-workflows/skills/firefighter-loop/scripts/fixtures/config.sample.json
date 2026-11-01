@@ -1,0 +1,39 @@
+{
+  "_comment": "Example config for an invoicing app's billing area. Every id is fake; replace them with your chat tool's real ids. Run `ff.rb config check` after editing.",
+  "chat": "slack",
+  "self": {
+    "user_id": "UEXAMPLE0",
+    "dm_channel_id": null
+  },
+  "watch": {
+    "channels": [
+      { "name": "#billing-support", "id": "CEXAMPLE1" },
+      { "name": "#billing-alerts", "id": "CEXAMPLE2" },
+      { "name": "#payments-eng", "id": "CEXAMPLE3" }
+    ],
+    "mentions": true,
+    "keywords": [],
+    "area": "Invoicing and payments: invoice generation, PDF rendering, payment reconciliation, dunning emails."
+  },
+  "oncall": {
+    "channel_id": "CEXAMPLE9",
+    "channel_name": "#ask-eng",
+    "handle_id": "SEXAMPLE1",
+    "rotation_bot_id": "BEXAMPLE1",
+    "resolved_reactions": ["white_check_mark"],
+    "in_progress_reactions": ["eyes"]
+  },
+  "dispatch": {
+    "max_per_tick": 3,
+    "max_initial_sweep": 6,
+    "live_cap": 8,
+    "hard_cap": 15,
+    "repo": "/Users/you/projects/invoicing-app",
+    "worktrees_dir": null,
+    "branch_prefix": "ff/"
+  },
+  "asks": {
+    "reaction": "robot_face",
+    "poll_days": 7
+  }
+}

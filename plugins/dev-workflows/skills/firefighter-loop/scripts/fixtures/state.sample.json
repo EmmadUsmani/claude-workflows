@@ -1,0 +1,246 @@
+{
+  "version": 1,
+  "created_at": "2034-08-24T00:30:00Z",
+  "updated_at": "2034-08-24T10:30:00Z",
+  "profile": "local",
+  "scheduler": "cron",
+  "mode": "start",
+  "interval": "5m",
+  "cron": {
+    "id": "cron_ff_example",
+    "expression": "2-59/5 * * * *",
+    "created_at": "2034-08-24T00:30:00Z",
+    "expires_at": "2034-08-31T00:30:00Z"
+  },
+  "lease": {},
+  "day": {
+    "date": "2034-08-24",
+    "dir": "/Users/you/.local/state/firefighter-loop/days/2034-08-24"
+  },
+  "dashboard": {
+    "path": "/Users/you/.local/state/firefighter-loop/dashboard.html",
+    "url": "https://claude.ai/code/artifacts/example-firefighter"
+  },
+  "watermarks": {
+    "CEXAMPLE1": {
+      "latest_ts": "2040027480.000340",
+      "checked_at": "2034-08-24T10:30:00Z"
+    },
+    "CEXAMPLE2": {
+      "latest_ts": "2040018000.000260",
+      "checked_at": "2034-08-24T10:30:00Z"
+    },
+    "CEXAMPLE3": {
+      "latest_ts": "2040005520.000880",
+      "checked_at": "2034-08-24T10:30:00Z"
+    },
+    "CEXAMPLE9": {
+      "latest_ts": "2040015000.000190",
+      "checked_at": "2034-08-24T10:30:00Z"
+    },
+    "mentions": {
+      "after_date": "2034-08-23",
+      "seen_ts": [
+        "2040023100.000410"
+      ],
+      "checked_at": "2034-08-24T10:30:00Z"
+    }
+  },
+  "oncall": {
+    "mode": "auto",
+    "handle_id": "SEXAMPLE1",
+    "channel_id": "CEXAMPLE9",
+    "channel_name": "#ask-eng",
+    "active": true,
+    "active_date": "2034-08-24",
+    "shift_start_ts": "2040012000.000015",
+    "forced_date": null
+  },
+  "items": {
+    "CEXAMPLE1:2040023100.000410": {
+      "channel_id": "CEXAMPLE1",
+      "ts": "2040023100.000410",
+      "channel": "#billing-support",
+      "permalink": "https://example.slack.com/archives/CEXAMPLE1/p2040023100000410",
+      "author": "UEXAMPLE1",
+      "title": "Invoice PDF shows the wrong currency symbol for EUR accounts",
+      "excerpt": "Invoices for <account_id> render with $ instead of the euro sign since this morning's deploy. Admin: /admin/accounts/<account_id>/invoices",
+      "class": "INCIDENT",
+      "priority": 1,
+      "mention": true,
+      "status": "in_progress",
+      "agent": {
+        "name": "ff-invoice-currency-symbol",
+        "id": "agent_example_01"
+      },
+      "dm": {
+        "root_ts": "2040023220.000120",
+        "last_ts": "2040025920.000005"
+      },
+      "worktree": "/Users/you/projects/invoicing-app/.worktrees/ff-invoice-currency-symbol",
+      "artifacts": [
+        "/Users/you/projects/sandbox/adhoc/2034-08-24-invoice-currency-symbol/README.md"
+      ],
+      "pr": null,
+      "last_reply_ts_seen": "2040025680.000930",
+      "reason": null,
+      "env": "local",
+      "first_seen_at": "2034-08-24T09:06:00Z",
+      "updated_at": "2034-08-24T09:52:00Z"
+    },
+    "CEXAMPLE2:2040018000.000260": {
+      "channel_id": "CEXAMPLE2",
+      "ts": "2040018000.000260",
+      "channel": "#billing-alerts",
+      "permalink": "https://example.slack.com/archives/CEXAMPLE2/p2040018000000260",
+      "author": "UEXAMPLE2",
+      "title": "Mark invoice INV-5307 as paid after a confirmed bank transfer",
+      "excerpt": "The bank transfer for INV-5307 cleared yesterday but the invoice is still open and dunning emails keep going out; can someone mark it paid?",
+      "class": "OPERATIONAL",
+      "priority": 2,
+      "mention": false,
+      "status": "needs_you",
+      "agent": {
+        "name": "ff-mark-invoice-paid",
+        "id": "agent_example_02"
+      },
+      "dm": {
+        "root_ts": "2040018180.000075",
+        "last_ts": "2040022500.000640"
+      },
+      "worktree": "/Users/you/projects/invoicing-app/.worktrees/ff-mark-invoice-paid",
+      "artifacts": [
+        "/Users/you/projects/sandbox/adhoc/2034-08-24-mark-invoice-paid/01_diagnose.rb",
+        "/Users/you/projects/sandbox/adhoc/2034-08-24-mark-invoice-paid/02_mark_paid_repair.rb"
+      ],
+      "pr": null,
+      "ask": "Paste 02_mark_paid_repair.rb into your production console with DRY_RUN = true and send back the output.",
+      "reason": "Remediation is drafted; only you can run a production script.",
+      "env": "local",
+      "first_seen_at": "2034-08-24T07:41:00Z",
+      "updated_at": "2034-08-24T08:55:00Z"
+    },
+    "CEXAMPLE3:2040005520.000880": {
+      "channel_id": "CEXAMPLE3",
+      "ts": "2040005520.000880",
+      "channel": "#payments-eng",
+      "permalink": "https://example.slack.com/archives/CEXAMPLE3/p2040005520000880",
+      "author": "UEXAMPLE3",
+      "title": "How long are audit logs kept for deleted users?",
+      "excerpt": "Question from support: when a user is deleted, do we keep their audit-log entries, and for how long?",
+      "class": "QUESTION",
+      "priority": 3,
+      "mention": false,
+      "status": "done",
+      "agent": {
+        "name": "ff-audit-log-retention",
+        "id": "agent_example_03"
+      },
+      "dm": {
+        "root_ts": "2040005640.000030",
+        "last_ts": "2040008520.000515"
+      },
+      "worktree": "/Users/you/projects/invoicing-app/.worktrees/ff-audit-log-retention",
+      "artifacts": [
+        "/Users/you/projects/sandbox/adhoc/2034-08-24-audit-log-retention/reply-draft.md"
+      ],
+      "pr": "https://github.com/example-org/invoicing-app/pull/57",
+      "reason": "Verdict written; reply draft ready for you to post.",
+      "env": "local",
+      "first_seen_at": "2034-08-24T04:13:00Z",
+      "updated_at": "2034-08-24T05:02:00Z"
+    },
+    "CEXAMPLE2:2039995980.000705": {
+      "channel_id": "CEXAMPLE2",
+      "ts": "2039995980.000705",
+      "channel": "#billing-alerts",
+      "permalink": "https://example.slack.com/archives/CEXAMPLE2/p2039995980000705",
+      "author": "UEXAMPLE4",
+      "title": "Another EUR account's invoice shows a dollar sign",
+      "excerpt": "Same currency-symbol symptom as the thread in #billing-support.",
+      "class": "INCIDENT",
+      "priority": 2,
+      "mention": false,
+      "status": "linked",
+      "linked_to": "CEXAMPLE1:2040023100.000410",
+      "artifacts": [],
+      "reason": "Same locale-formatting helper as the live item; folded into that agent.",
+      "env": "local",
+      "first_seen_at": "2034-08-24T09:06:00Z",
+      "updated_at": "2034-08-24T09:10:00Z"
+    },
+    "CEXAMPLE1:2040027480.000340": {
+      "channel_id": "CEXAMPLE1",
+      "ts": "2040027480.000340",
+      "channel": "#billing-support",
+      "permalink": "https://example.slack.com/archives/CEXAMPLE1/p2040027480000340",
+      "author": "UEXAMPLE5",
+      "title": "Webhook deliveries to one customer endpoint keep retrying",
+      "excerpt": "The delivery log shows the invoice.paid webhook to one customer endpoint retrying every few minutes since noon; other endpoints are fine.",
+      "class": "INCIDENT",
+      "priority": 2,
+      "mention": false,
+      "status": "acked",
+      "ack": {
+        "via": "reply",
+        "ts": "2040028740.000095",
+        "excerpt": "on it after standup",
+        "ask": {
+          "channel_id": "DEXAMPLE0",
+          "thread_ts": "2040027900.000610",
+          "ts": "2040027900.000611",
+          "n": 1
+        }
+      },
+      "reason": "Acknowledged by you; skipped unless you ask the loop to take it.",
+      "env": "local",
+      "first_seen_at": "2034-08-24T10:19:00Z",
+      "updated_at": "2034-08-24T10:26:00Z"
+    },
+    "CEXAMPLE9:2040015000.000190": {
+      "channel_id": "CEXAMPLE9",
+      "ts": "2040015000.000190",
+      "channel": "#ask-eng",
+      "permalink": "https://example.slack.com/archives/CEXAMPLE9/p2040015000000190",
+      "author": "UEXAMPLE6",
+      "title": "Re-send one invoice email that bounced",
+      "excerpt": "The customer fixed their mailbox; can the latest invoice email be re-sent?",
+      "class": "OPERATIONAL",
+      "priority": 1,
+      "mention": false,
+      "oncall": true,
+      "status": "user_owns",
+      "ack": {
+        "via": "reaction",
+        "ask": {
+          "channel_id": "DEXAMPLE0",
+          "thread_ts": "2040015480.000445",
+          "ts": "2040015480.000446",
+          "n": 1
+        },
+        "decision": "mine",
+        "decided_at": "2034-08-24T07:07:00Z",
+        "decided_ts": "2040015960.000802",
+        "decided_via": "dm"
+      },
+      "reason": "acknowledged by the user; they are handling it themselves",
+      "env": "local",
+      "first_seen_at": "2034-08-24T06:51:00Z",
+      "updated_at": "2034-08-24T07:07:00Z"
+    }
+  },
+  "ticks": [
+    {
+      "at": "2034-08-24T10:20:00Z",
+      "line": "tick - 0 new (billing-support: 1 noise) - 2 live - next 10:25"
+    },
+    {
+      "at": "2034-08-24T10:25:00Z",
+      "line": "tick - 1 new (INCIDENT, acked - asked #1) - 2 live - 1 awaiting your call - next 10:30"
+    },
+    {
+      "at": "2034-08-24T10:30:00Z",
+      "line": "tick - 0 new - 2 live - 1 needs you - next 10:35"
+    }
+  ]
+}
