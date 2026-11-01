@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- The canvas size scripts/render.rb renders at. Keep it equal to .canvas width/height below. -->
+<meta name="one-pager:size" content="1680x1050">
+<title>REPLACE Name Spec Sheet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one fixed drawing sheet. Single frame, header + revision/status block,
+   a 3x2 grid of numbered panels, title block bottom-right. Ink on paper; ONE signal colour
+   (revision mode: what changed in this revision; new mode: what is new in the system). */
+:root {
+  --paper: #f5f6f3;
+  --sheet: #fbfbf9;
+  --ink: #16191d;
+  --ink-2: #4a5058;
+  --ink-3: #7b828b;
+  --rule: #b9bec4;
+  --hair: #dde0e3;
+  --sig: #d1431c;
+  --sig-wash: #fbe9e3;
+  --tint: #eef0ec;
+  --cond: "IBM Plex Sans Condensed", "Arial Narrow", "Helvetica Neue", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: light;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--paper); color: var(--ink); }
+.canvas { position: relative; width: 1680px; height: 1050px; overflow: hidden; font-family: var(--cond); font-size: 12.5px; line-height: 1.35; color: var(--ink); }
+.sheet { position: absolute; inset: 12px; background: var(--sheet); border: 1.5px solid var(--ink); }
+.inner { position: absolute; inset: 0; display: grid; grid-template-rows: 82px minmax(0, 1fr); }
+
+/* header */
+.head { display: grid; grid-template-columns: 1fr 520px; border-bottom: 0.75px solid var(--ink); min-width: 0; }
+.title { padding: 11px 16px 0; display: grid; align-content: start; gap: 3px; min-width: 0; }
+.title .kicker { font-family: var(--mono); font-size: 10px; letter-spacing: .14em; color: var(--ink-3); text-transform: uppercase; }
+.title h1 { font-size: 26px; font-weight: 700; letter-spacing: .01em; line-height: 1.05; text-transform: uppercase; }
+.title h1 em { font-style: normal; color: var(--sig); }
+.title .dek { font-size: 13px; color: var(--ink-2); }
+/* revision mode: REV table. new mode: STATUS fields. Both are 4 equal rows under a 16px head row. */
+.rev { border-left: 0.75px solid var(--ink); font-family: var(--mono); font-size: 9.5px; display: grid; grid-template-rows: 16px 1fr 1fr 1fr; min-width: 0; }
+.rev div { display: grid; grid-template-columns: 34px minmax(0, 1fr) 74px; border-bottom: 0.5px solid var(--rule); align-items: center; min-width: 0; }
+.rev div:last-child { border-bottom: 0; }
+.rev div span { padding: 0 7px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rev div span + span { border-left: 0.5px solid var(--rule); height: 100%; display: flex; align-items: center; }
+.rev .rh { color: var(--ink-3); letter-spacing: .08em; }
+.rev .cur { color: var(--sig); font-weight: 600; }
+.status { border-left: 0.75px solid var(--ink); font-family: var(--mono); font-size: 9.5px; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; min-width: 0; }
+.status > div { border-bottom: 0.5px solid var(--rule); border-right: 0.5px solid var(--rule); padding: 5px 8px; display: grid; align-content: center; gap: 2px; min-width: 0; }
+.status > div:nth-child(2n) { border-right: 0; }
+.status > div:nth-last-child(-n+2) { border-bottom: 0; }
+.status .k { color: var(--ink-3); letter-spacing: .1em; font-size: 7.5px; }
+.status .v { font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.status .v.sig { color: var(--sig); font-weight: 600; }
+
+/* body grid: default 3 columns x 2 rows */
+.body { display: grid; grid-template-columns: 560fr 540fr 520fr; grid-template-rows: 538px minmax(0, 1fr); min-height: 0; }
+.panel { border-right: 0.75px solid var(--ink); border-bottom: 0.75px solid var(--ink); padding: 9px 12px 10px; position: relative; min-width: 0; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 6px; }
+.panel.r { border-right: 0; }
+.panel.b { border-bottom: 0; }
+.ph { display: flex; align-items: baseline; gap: 8px; border-bottom: 0.5px solid var(--rule); padding-bottom: 4px; min-width: 0; }
+.ph .n { font-family: var(--mono); font-size: 10px; font-weight: 600; border: 0.75px solid var(--ink); padding: 0 4px; line-height: 14px; }
+.ph h2 { font-size: 13px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; white-space: nowrap; }
+.ph .s { margin-left: auto; font-family: var(--mono); font-size: 9.5px; color: var(--ink-3); white-space: nowrap; }
+/* revision delta marker for HTML headings: <span class="delta" data-rev="B"></span> */
+.delta { display: inline-block; width: 15px; height: 13px; position: relative; margin: 0 2px; flex: none; align-self: center; }
+.delta::before { content: ""; position: absolute; left: 0; top: 0; border-left: 7.5px solid transparent; border-right: 7.5px solid transparent; border-bottom: 13px solid var(--sig); }
+.delta::after { content: attr(data-rev); position: absolute; left: 4.4px; top: 2.6px; font-family: var(--mono); font-size: 7.5px; font-weight: 700; color: #fff; }
+
+svg { display: block; width: 100%; height: 100%; overflow: visible; }
+svg text { font-family: var(--cond); }
+/* NEVER `svg text { fill: ... }`: CSS beats the fill attribute and silently recolours every label. */
+svg text:not([fill]) { fill: var(--ink); }
+svg .m, svg .m text { font-family: var(--mono); }
+.code { font-family: var(--mono); font-size: 10.6px; line-height: 1.5; white-space: pre; color: var(--ink); overflow: hidden; }
+.code .c { color: var(--ink-3); }
+.code .k { color: var(--sig); }
+.code .b { font-weight: 600; }
+.box { border: 0.75px solid var(--ink); background: #fff; padding: 6px 8px; min-width: 0; }
+.lbl { font-family: var(--mono); font-size: 9px; letter-spacing: .1em; color: var(--ink-3); text-transform: uppercase; }
+
+/* why notes: every panel says why (panel-foot note, or .key for the one decision the sheet turns on) */
+.why { display: grid; gap: 2px; border-top: 0.5px solid var(--rule); padding-top: 5px; min-width: 0; }
+.why p { font-size: 11.5px; line-height: 1.32; color: var(--ink-2); }
+.why.key { border: 0.75px solid var(--sig); padding: 6px 9px; }
+.why.key .lbl { color: var(--sig); }
+.why.key p { color: var(--ink); }
+
+/* traces */
+.trace { display: grid; gap: 2px; }
+.step { display: grid; grid-template-columns: 22px minmax(0, 1fr); column-gap: 6px; align-items: start; }
+.step .i { font-family: var(--mono); font-size: 9px; font-weight: 600; color: var(--ink-2); border: 0.6px solid var(--ink-2); border-radius: 50%; width: 17px; height: 17px; display: grid; place-items: center; margin-top: 1px; }
+.step .t { font-family: var(--mono); font-size: 10.6px; line-height: 1.45; }
+.step .t small { font-family: var(--cond); font-size: 11.5px; color: var(--ink-2); }
+.step.sub .i { border-style: dashed; }
+
+/* lists */
+ul.inv { list-style: none; display: grid; gap: 4px; align-content: start; }
+ul.inv li { display: grid; grid-template-columns: 12px minmax(0, 1fr); font-size: 12px; line-height: 1.32; }
+ul.inv li::before { content: "\25B8"; font-size: 9px; color: var(--ink-2); padding-top: 2px; }
+ul.inv code { font-family: var(--mono); font-size: 10.5px; white-space: nowrap; }
+
+/* title block */
+.tb { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5px; background: var(--rule); border: 0.75px solid var(--ink); font-family: var(--mono); font-size: 9px; }
+.tb > div { background: var(--sheet); padding: 3px 6px 4px; display: grid; gap: 1px; min-width: 0; }
+.tb > div.w2 { grid-column: span 2; }
+.tb > div.w3 { grid-column: span 3; }
+.tb .k { color: var(--ink-3); letter-spacing: .1em; font-size: 7.5px; }
+.tb .v { color: var(--ink); font-size: 10px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tb .v.big { font-family: var(--cond); font-size: 15px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
+.tb .v.sig { color: var(--sig); }
+
+/* data table (blast radius, decisions, request/response): <table class="t"> */
+table.t { width: 100%; border-collapse: collapse; }
+table.t th { font-family: var(--mono); font-size: 8.5px; font-weight: 500; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); text-align: left; background: var(--tint); padding: 3px 6px; border-top: 0.75px solid var(--ink); border-bottom: 0.5px solid var(--rule); white-space: nowrap; }
+table.t td { font-size: 11.5px; line-height: 1.3; padding: 4px 6px; border-bottom: 0.5px solid var(--hair); vertical-align: top; }
+table.t th.n, table.t td.n { text-align: right; font-family: var(--mono); font-size: 10.4px; white-space: nowrap; }
+table.t tr.tot td { font-weight: 600; }
+table.t code { font-family: var(--mono); font-size: 10px; }
+table.t .g { color: var(--ink-3); }
+table.t .delta { vertical-align: -1px; margin: 0 0 0 4px; }
+
+/* stack / rollout strip: <div class="stack" style="grid-template-columns: repeat(N, minmax(0, 1fr))"> */
+.stack { display: grid; border: 0.75px solid var(--ink); }
+.stack > div { border-right: 0.5px solid var(--rule); padding: 3px 6px 4px; display: grid; gap: 1px; align-content: start; min-width: 0; }
+.stack > div:last-child { border-right: 0; }
+.stack .k { font-family: var(--mono); font-size: 8.5px; letter-spacing: .08em; color: var(--ink-3); }
+.stack .v { font-size: 11px; font-weight: 600; line-height: 1.15; }
+.stack .s { font-family: var(--mono); font-size: 8.5px; color: var(--ink-2); }
+.stack .sig { background: var(--sig-wash); }
+.stack .sig .s { color: var(--sig); font-weight: 600; }
+
+/* wireframe callouts: <ol class="co"><li><b class="n">1</b><span>...</span></li></ol> */
+ol.co { list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 3px 14px; }
+ol.co li { display: grid; grid-template-columns: 18px minmax(0, 1fr); font-size: 11.5px; line-height: 1.3; color: var(--ink-2); }
+ol.co li b.n { font-family: var(--mono); font-size: 8.5px; font-weight: 600; color: var(--ink); border: 0.6px solid var(--ink); border-radius: 50%; width: 13px; height: 13px; display: grid; place-items: center; margin-top: 1px; }
+ol.co code { font-family: var(--mono); font-size: 10px; color: var(--ink); }
+/* code inside prose: why notes, trace steps, tables */
+.why code, .t td code { font-family: var(--mono); font-size: 10px; }
+.step .t small code { font-family: var(--mono); font-size: 10px; }
+</style>
+</head>
+<body>
+<div class="canvas" id="canvas">
+<div class="sheet">
+  <div class="inner">
+
+    <!-- HEADER -->
+    <div class="head">
+      <div class="title">
+        <div class="kicker">REPLACE Org &middot; Area &middot; System plan &middot; one sheet</div>
+        <h1>REPLACE Feature Name &mdash; <em>Plan</em></h1>
+        <div class="dek">REPLACE One sentence: what the system does for whom, and the one mechanism that makes it work.</div>
+      </div>
+
+      <!-- REVISION MODE: keep .rev, delete .status. Rev A = what existed (plan or built PRs) + why it changed; current rev in .cur. -->
+      <div class="rev">
+        <div class="rh"><span>REV</span><span>DESCRIPTION</span><span>DATE</span></div>
+        <div><span>A</span><span>REPLACE what Rev A was, and the feedback that sent it back</span><span>YYYY-MM-DD</span></div>
+        <div class="cur"><span>B</span><span>REPLACE the 3&ndash;5 changes, &middot;-separated</span><span>YYYY-MM-DD</span></div>
+        <div><span>&nbsp;</span><span style="color:var(--ink-3)">&#9651;B marks every element that changed in Rev B</span><span style="color:var(--ink-3)">PROPOSED</span></div>
+      </div>
+      <!-- NEW MODE: use this instead of .rev.
+      <div class="status">
+        <div><span class="k">STATUS</span><span class="v sig">PROPOSED &middot; NOT BUILT</span></div>
+        <div><span class="k">DELIVERY</span><span class="v">REPLACE e.g. 3 stacked PRs</span></div>
+        <div><span class="k">CODE READ AT</span><span class="v">REPLACE main @ sha</span></div>
+        <div><span class="k">NUMBERS</span><span class="v">REPLACE dev DB / prod</span></div>
+      </div>
+      -->
+    </div>
+
+    <!-- BODY: six panels. Default spine: 01 data model, 02 abstraction/boundary, 03 trace paths,
+         04 API contract, 05 consumer + key mechanism, 06 guarantees/open items + title block.
+         Classes: .r = last column (no right border), .b = bottom row (no bottom border). -->
+    <div class="body">
+
+      <section class="panel">
+        <div class="ph"><span class="n">01</span><h2>Data model</h2><span class="s">REPLACE schema note</span></div>
+        <svg viewBox="0 0 536 470" role="img" aria-label="REPLACE one-sentence description of the diagram">
+          <defs>
+            <marker id="one" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M8,1 L8,11" stroke="#16191d" stroke-width="1"/></marker>
+            <marker id="many" viewBox="0 0 14 14" refX="13" refY="7" markerWidth="14" markerHeight="14" orient="auto-start-reverse"><path d="M3,7 L13,1 M3,7 L13,13 M3,7 L13,7" stroke="#16191d" stroke-width="1" fill="none"/></marker>
+            <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#16191d"/></marker>
+          </defs>
+          <!-- table card: header strip + columns; see REFERENCE.md "ERD table card" -->
+          <rect x="0.5" y="0.5" width="200" height="74" fill="#fff" stroke="#16191d" stroke-width="0.75"/>
+          <rect x="0.5" y="0.5" width="200" height="18" fill="var(--tint)" stroke="#16191d" stroke-width="0.75"/>
+          <text x="8" y="13.5" class="m" font-size="10" font-weight="600">replace_table</text>
+          <text x="8" y="34" class="m" font-size="9.5">id <tspan fill="#7b828b">uuid PK</tspan></text>
+          <text x="8" y="50" class="m" font-size="9.5">other_id <tspan fill="#7b828b">FK</tspan></text>
+        </svg>
+        <div class="why"><span class="lbl">WHY REPLACE &middot; D1</span><p>REPLACE the plan&apos;s reason for this model choice, and the alternative it rejected.</p></div>
+      </section>
+
+      <section class="panel">
+        <div class="ph"><span class="n">02</span><h2>Boundary</h2><span class="s">REPLACE</span></div>
+        <!-- revision mode only: add <span class="delta" data-rev="B"></span> after the h2 of a panel whose content changed -->
+        <div></div>
+        <div class="why"><span class="lbl">WHY THE BOUNDARY IS HERE</span><p>REPLACE what this boundary protects, in the plan&apos;s words.</p></div>
+      </section>
+
+      <section class="panel r">
+        <div class="ph"><span class="n">03</span><h2>Trace paths</h2><span class="s">write &middot; read</span></div>
+        <div style="display:grid; gap:8px; align-content:start; min-height:0">
+          <div class="lbl" style="margin-bottom:4px">W &middot; REPLACE write path</div>
+          <div class="trace">
+            <div class="step"><span class="i">W1</span><span class="t"><b>Replace.call!</b>(arg:)<br><small>REPLACE why this step matters</small></span></div>
+            <div class="step sub"><span class="i">W2</span><span class="t">replace_inner_step</span></div>
+          </div>
+          <div class="why key"><span class="lbl">WHY REPLACE &middot; the decision the sheet turns on</span><p>REPLACE one to three lines; one key-WHY box per sheet.</p></div>
+        </div>
+      </section>
+
+      <section class="panel b">
+        <div class="ph"><span class="n">04</span><h2>API contract</h2><span class="s">GraphQL</span></div>
+        <div class="box code"><span class="k">type</span> <b class="b">Replace</b> {
+  field: String!   <span class="c"># REPLACE note</span>
+}</div>
+        <ul class="inv"><li><span><b>Why this shape:</b> REPLACE the reason the contract looks like this.</span></li></ul>
+      </section>
+
+      <section class="panel b">
+        <div class="ph"><span class="n">05</span><h2>Consumer</h2><span class="s">React</span></div>
+        <div class="box code"><span class="k">const</span> replace = useReplace()</div>
+        <div class="why"><span class="lbl">WHY THE CONSUMER DOES IT THIS WAY</span><p>REPLACE the reason.</p></div>
+      </section>
+
+      <section class="panel r b">
+        <div class="ph"><span class="n">06</span><h2>Guarantees &middot; open items</h2><span class="s">REPLACE rollout</span></div>
+        <div style="display:grid; grid-template-rows: auto 1fr auto; gap: 7px; min-height: 0">
+          <ul class="inv">
+            <li><span>REPLACE a guarantee the design makes, <b>because</b> REPLACE why it holds.</span></li>
+            <li><span><b>O1</b> REPLACE an open question, with the proposed answer.</span></li>
+          </ul>
+          <div></div>
+          <div class="tb">
+            <div class="w3"><span class="k">TITLE</span><span class="v big">REPLACE &middot; System Plan</span></div>
+            <div><span class="k">PROJECT</span><span class="v">REPLACE</span></div>
+            <div><span class="k">DWG</span><span class="v">REPLACE plan file</span></div>
+            <div><span class="k">REV</span><span class="v sig">B &middot; PROPOSED</span></div>
+            <div><span class="k">STACK</span><span class="v">REPLACE PRs or &mdash;</span></div>
+            <div><span class="k">DATE</span><span class="v">YYYY-MM-DD</span></div>
+            <div><span class="k">SHEET</span><span class="v">1 OF 1 &middot; NTS</span></div>
+            <div class="w3"><span class="k">SOURCE</span><span class="v">REPLACE path to the plan &middot; where numbers came from</span></div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+  // Self-check, read by scripts/render.rb. Runs only with ?lint in the URL; writes JSON into #one-pager-lint.
+  (function () {
+    if (!/[?&]lint\b/.test(location.search)) return;
+    function snippet(el) { return (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 70); }
+    function run() {
+      var issues = [];
+      var canvas = document.getElementById('canvas');
+      var meta = document.querySelector('meta[name="one-pager:size"]');
+      if (meta) {
+        var size = meta.content.split('x').map(Number);
+        if (canvas.offsetWidth !== size[0] || canvas.offsetHeight !== size[1]) issues.push({ kind: 'canvas-size', detail: 'meta says ' + meta.content + ', .canvas is ' + canvas.offsetWidth + 'x' + canvas.offsetHeight });
+      }
+      var head = document.querySelector('.head');
+      if (head) {
+        var headBottom = head.getBoundingClientRect().bottom;
+        head.querySelectorAll('*').forEach(function (el) {
+          if (el.children.length === 0 && el.textContent.trim() && el.getBoundingClientRect().bottom > headBottom + 1) issues.push({ kind: 'header-overflow', detail: snippet(el) });
+        });
+      }
+      document.querySelectorAll('.panel').forEach(function (panel, index) {
+        if (panel.scrollHeight > panel.clientHeight + 1 || panel.scrollWidth > panel.clientWidth + 1) {
+          issues.push({ kind: 'panel-overflow', panel: index + 1, detail: (panel.querySelector('h2') || panel).textContent.trim() + ': content ' + panel.scrollWidth + 'x' + panel.scrollHeight + ' > box ' + panel.clientWidth + 'x' + panel.clientHeight });
+        }
+      });
+      document.querySelectorAll('.canvas *').forEach(function (el) {
+        if (el.closest('svg') || el.closest('.ticks')) return;
+        var style = getComputedStyle(el);
+        var clips = style.overflow === 'hidden' || style.overflowX === 'hidden' || style.textOverflow === 'ellipsis';
+        var clippedY = style.overflow === 'hidden' || style.overflowY === 'hidden';
+        if (clips && el.scrollWidth > el.clientWidth + 1 && !el.classList.contains('canvas')) issues.push({ kind: 'clipped-text', detail: snippet(el) });
+        else if (clippedY && el.scrollHeight > el.clientHeight + 1 && !el.classList.contains('canvas') && !el.classList.contains('panel')) issues.push({ kind: 'clipped-text', detail: 'bottom cut off: ' + snippet(el) });
+        if (el.children.length === 0 && el.textContent.trim() && parseFloat(style.fontSize) < 7.5) issues.push({ kind: 'tiny-text', detail: style.fontSize + ' ' + snippet(el) });
+      });
+      document.querySelectorAll('.canvas svg').forEach(function (svg, svgIndex) {
+        var vb = svg.viewBox && svg.viewBox.baseVal;
+        var boxes = [];
+        svg.querySelectorAll('text').forEach(function (text) {
+          if (text.closest('marker, defs')) return;
+          var b; try { b = text.getBBox(); } catch (e) { return; }
+          if (!b.width) return;
+          var ctm = text.getCTM(), root = svg.getCTM();
+          var dx = ctm && root ? (ctm.e - root.e) / root.a : 0, dy = ctm && root ? (ctm.f - root.f) / root.d : 0;
+          var box = { x: b.x + dx, y: b.y + dy, w: b.width, h: b.height, label: snippet(text) };
+          boxes.push(box);
+          if (vb && vb.width && (box.x < vb.x - 1 || box.y < vb.y - 14 || box.x + box.w > vb.x + vb.width + 1 || box.y + box.h > vb.y + vb.height + 1)) {
+            issues.push({ kind: 'svg-text-outside-viewbox', svg: svgIndex + 1, detail: box.label });
+          }
+        });
+// A label that starts inside a box must also end inside it, 5 units clear of the right edge.
+var rects = [];
+svg.querySelectorAll('rect').forEach(function (rect) {
+  if (rect.closest('marker, defs')) return;
+  var rb; try { rb = rect.getBBox(); } catch (e) { return; }
+  var rctm = rect.getCTM(), rroot = svg.getCTM();
+  var rdx = rctm && rroot ? (rctm.e - rroot.e) / rroot.a : 0, rdy = rctm && rroot ? (rctm.f - rroot.f) / rroot.d : 0;
+  if (rb.width > 4 && rb.height > 4) rects.push({ x: rb.x + rdx, y: rb.y + rdy, w: rb.width, h: rb.height });
+});
+boxes.forEach(function (t) {
+  var sx = t.x + 1, sy = t.y + t.h / 2, host = null;
+  rects.forEach(function (r) {
+    if (sx >= r.x && sx <= r.x + r.w && sy >= r.y && sy <= r.y + r.h && (!host || r.w * r.h <= host.w * host.h)) host = r;  // ties: the last-painted (visible) box wins
+  });
+  if (host && (t.x + t.w > host.x + host.w - 5 || t.y + t.h > host.y + host.h + 1)) issues.push({ kind: 'svg-text-exceeds-box', svg: svgIndex + 1, detail: t.label });
+});
+// A connector line must not cross a label (the label box shrunk 1.5 units, so lines that
+// merely graze an edge or run beside a label don't count).
+svg.querySelectorAll('line').forEach(function (line) {
+  if (line.closest('marker, defs')) return;
+  var lctm = line.getCTM(), lroot = svg.getCTM();
+  var ldx = lctm && lroot ? (lctm.e - lroot.e) / lroot.a : 0, ldy = lctm && lroot ? (lctm.f - lroot.f) / lroot.d : 0;
+  var x1 = line.x1.baseVal.value + ldx, y1 = line.y1.baseVal.value + ldy, x2 = line.x2.baseVal.value + ldx, y2 = line.y2.baseVal.value + ldy;
+  boxes.forEach(function (t) {
+    var bx1 = t.x + 1.5, by1 = t.y + 1.5, bx2 = t.x + t.w - 1.5, by2 = t.y + t.h - 1.5;
+    if (bx2 <= bx1 || by2 <= by1) return;
+    // Liang-Barsky clip of the segment against the label box.
+    var dx = x2 - x1, dy = y2 - y1, p = [-dx, dx, -dy, dy], q = [x1 - bx1, bx2 - x1, y1 - by1, by2 - y1], u1 = 0, u2 = 1, hit = true;
+    for (var k = 0; k < 4; k++) {
+      if (p[k] === 0) { if (q[k] < 0) { hit = false; break; } }
+      else { var r = q[k] / p[k]; if (p[k] < 0) { if (r > u1) u1 = r; } else { if (r < u2) u2 = r; } if (u1 > u2) { hit = false; break; } }
+    }
+    if (hit) issues.push({ kind: 'svg-line-through-text', svg: svgIndex + 1, detail: t.label });
+  });
+});
+        for (var i = 0; i < boxes.length; i++) {
+          for (var j = i + 1; j < boxes.length; j++) {
+            var a = boxes[i], c = boxes[j];
+            var ox = Math.min(a.x + a.w, c.x + c.w) - Math.max(a.x, c.x);
+            var oy = Math.min(a.y + a.h, c.y + c.h) - Math.max(a.y, c.y);
+            if (ox > 1.5 && oy > 2.5) issues.push({ kind: 'svg-text-overlap', svg: svgIndex + 1, detail: '"' + a.label + '" x "' + c.label + '"' });
+          }
+        }
+      });
+      // Advisory: every panel should say WHY (a "WHY ..." note, a "Why ...:" lead, or a WHY box).
+      document.querySelectorAll(".panel").forEach(function (panel, index) {
+        if (!/\bwhy\b/i.test(panel.innerText || panel.textContent)) issues.push({ kind: "no-why", advisory: true, panel: index + 1, detail: (panel.querySelector("h2") || panel).textContent.trim() });
+      });
+      var families = {};
+      document.fonts.forEach(function (face) { if (face.status === 'loaded') families[face.family.replace(/"/g, '')] = true; });
+      ['IBM Plex Mono', 'IBM Plex Sans Condensed'].forEach(function (family) { if (!families[family]) issues.push({ kind: 'font-fallback', detail: family + ' did not load' }); });
+      var out = document.createElement('pre');
+      out.id = 'one-pager-lint';
+      out.textContent = JSON.stringify({ issues: issues });
+      document.body.appendChild(out);
+    }
+    (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(function () { setTimeout(run, 50); });
+  })();
+</script>
+</body>
+</html>

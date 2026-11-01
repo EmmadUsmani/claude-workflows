@@ -1,0 +1,558 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- The canvas size scripts/render.rb renders at. Keep it equal to .canvas width/height below. -->
+<meta name="one-pager:size" content="1680x1050">
+<title>API Rate Limiter Spec Sheet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one fixed drawing sheet. Single frame, header + revision/status block,
+   a 3x2 grid of numbered panels, title block bottom-right. Ink on paper; ONE signal colour
+   (revision mode: what changed in this revision; new mode: what is new in the system). */
+:root {
+  --paper: #f5f6f3;
+  --sheet: #fbfbf9;
+  --ink: #16191d;
+  --ink-2: #4a5058;
+  --ink-3: #7b828b;
+  --rule: #b9bec4;
+  --hair: #dde0e3;
+  --sig: #d1431c;
+  --sig-wash: #fbe9e3;
+  --tint: #eef0ec;
+  --cond: "IBM Plex Sans Condensed", "Arial Narrow", "Helvetica Neue", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: light;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--paper); color: var(--ink); }
+.canvas { position: relative; width: 1680px; height: 1050px; overflow: hidden; font-family: var(--cond); font-size: 12.5px; line-height: 1.35; color: var(--ink); }
+.sheet { position: absolute; inset: 12px; background: var(--sheet); border: 1.5px solid var(--ink); }
+.inner { position: absolute; inset: 0; display: grid; grid-template-rows: 82px minmax(0, 1fr); }
+
+/* header */
+.head { display: grid; grid-template-columns: 1fr 520px; border-bottom: 0.75px solid var(--ink); min-width: 0; }
+.title { padding: 11px 16px 0; display: grid; align-content: start; gap: 3px; min-width: 0; }
+.title .kicker { font-family: var(--mono); font-size: 10px; letter-spacing: .14em; color: var(--ink-3); text-transform: uppercase; }
+.title h1 { font-size: 26px; font-weight: 700; letter-spacing: .01em; line-height: 1.05; text-transform: uppercase; }
+.title h1 em { font-style: normal; color: var(--sig); }
+.title .dek { font-size: 13px; color: var(--ink-2); }
+/* revision mode: REV table. new mode: STATUS fields. Both are 4 equal rows under a 16px head row. */
+.rev { border-left: 0.75px solid var(--ink); font-family: var(--mono); font-size: 9.5px; display: grid; grid-template-rows: 16px 1fr 1fr 1fr; min-width: 0; }
+.rev div { display: grid; grid-template-columns: 34px minmax(0, 1fr) 74px; border-bottom: 0.5px solid var(--rule); align-items: center; min-width: 0; }
+.rev div:last-child { border-bottom: 0; }
+.rev div span { padding: 0 7px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rev div span + span { border-left: 0.5px solid var(--rule); height: 100%; display: flex; align-items: center; }
+.rev .rh { color: var(--ink-3); letter-spacing: .08em; }
+.rev .cur { color: var(--sig); font-weight: 600; }
+.status { border-left: 0.75px solid var(--ink); font-family: var(--mono); font-size: 9.5px; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; min-width: 0; }
+.status > div { border-bottom: 0.5px solid var(--rule); border-right: 0.5px solid var(--rule); padding: 5px 8px; display: grid; align-content: center; gap: 2px; min-width: 0; }
+.status > div:nth-child(2n) { border-right: 0; }
+.status > div:nth-last-child(-n+2) { border-bottom: 0; }
+.status .k { color: var(--ink-3); letter-spacing: .1em; font-size: 7.5px; }
+.status .v { font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.status .v.sig { color: var(--sig); font-weight: 600; }
+
+/* body grid: default 3 columns x 2 rows */
+.body { display: grid; grid-template-columns: 560fr 540fr 520fr; grid-template-rows: 538px minmax(0, 1fr); min-height: 0; }
+.panel { border-right: 0.75px solid var(--ink); border-bottom: 0.75px solid var(--ink); padding: 9px 12px 10px; position: relative; min-width: 0; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 6px; }
+.panel.r { border-right: 0; }
+.panel.b { border-bottom: 0; }
+.ph { display: flex; align-items: baseline; gap: 8px; border-bottom: 0.5px solid var(--rule); padding-bottom: 4px; min-width: 0; }
+.ph .n { font-family: var(--mono); font-size: 10px; font-weight: 600; border: 0.75px solid var(--ink); padding: 0 4px; line-height: 14px; }
+.ph h2 { font-size: 13px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; white-space: nowrap; }
+.ph .s { margin-left: auto; font-family: var(--mono); font-size: 9.5px; color: var(--ink-3); white-space: nowrap; }
+/* revision delta marker for HTML headings: <span class="delta" data-rev="B"></span> */
+.delta { display: inline-block; width: 15px; height: 13px; position: relative; margin: 0 2px; flex: none; align-self: center; }
+.delta::before { content: ""; position: absolute; left: 0; top: 0; border-left: 7.5px solid transparent; border-right: 7.5px solid transparent; border-bottom: 13px solid var(--sig); }
+.delta::after { content: attr(data-rev); position: absolute; left: 4.4px; top: 2.6px; font-family: var(--mono); font-size: 7.5px; font-weight: 700; color: #fff; }
+
+svg { display: block; width: 100%; height: 100%; overflow: visible; }
+svg text { font-family: var(--cond); }
+/* NEVER `svg text { fill: ... }`: CSS beats the fill attribute and silently recolours every label. */
+svg text:not([fill]) { fill: var(--ink); }
+svg .m, svg .m text { font-family: var(--mono); }
+.code { font-family: var(--mono); font-size: 10.6px; line-height: 1.5; white-space: pre; color: var(--ink); overflow: hidden; }
+.code .c { color: var(--ink-3); }
+.code .k { color: var(--sig); }
+.code .b { font-weight: 600; }
+.box { border: 0.75px solid var(--ink); background: #fff; padding: 6px 8px; min-width: 0; }
+.lbl { font-family: var(--mono); font-size: 9px; letter-spacing: .1em; color: var(--ink-3); text-transform: uppercase; }
+
+/* why notes: every panel says why (panel-foot note, or .key for the one decision the sheet turns on) */
+.why { display: grid; gap: 2px; border-top: 0.5px solid var(--rule); padding-top: 5px; min-width: 0; }
+.why p { font-size: 11.5px; line-height: 1.32; color: var(--ink-2); }
+.why.key { border: 0.75px solid var(--sig); padding: 6px 9px; }
+.why.key .lbl { color: var(--sig); }
+.why.key p { color: var(--ink); }
+
+/* traces */
+.trace { display: grid; gap: 2px; }
+.step { display: grid; grid-template-columns: 22px minmax(0, 1fr); column-gap: 6px; align-items: start; }
+.step .i { font-family: var(--mono); font-size: 9px; font-weight: 600; color: var(--ink-2); border: 0.6px solid var(--ink-2); border-radius: 50%; width: 17px; height: 17px; display: grid; place-items: center; margin-top: 1px; }
+.step .t { font-family: var(--mono); font-size: 10.6px; line-height: 1.45; }
+.step .t small { font-family: var(--cond); font-size: 11.5px; color: var(--ink-2); }
+.step.sub .i { border-style: dashed; }
+
+/* lists */
+ul.inv { list-style: none; display: grid; gap: 4px; align-content: start; }
+ul.inv li { display: grid; grid-template-columns: 12px minmax(0, 1fr); font-size: 12px; line-height: 1.32; }
+ul.inv li::before { content: "\25B8"; font-size: 9px; color: var(--ink-2); padding-top: 2px; }
+ul.inv code { font-family: var(--mono); font-size: 10.5px; white-space: nowrap; }
+
+/* title block */
+.tb { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5px; background: var(--rule); border: 0.75px solid var(--ink); font-family: var(--mono); font-size: 9px; }
+.tb > div { background: var(--sheet); padding: 3px 6px 4px; display: grid; gap: 1px; min-width: 0; }
+.tb > div.w2 { grid-column: span 2; }
+.tb > div.w3 { grid-column: span 3; }
+.tb .k { color: var(--ink-3); letter-spacing: .1em; font-size: 7.5px; }
+.tb .v { color: var(--ink); font-size: 10px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tb .v.big { font-family: var(--cond); font-size: 15px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
+.tb .v.sig { color: var(--sig); }
+
+/* data table (blast radius, decisions, request/response): <table class="t"> */
+table.t { width: 100%; border-collapse: collapse; }
+table.t th { font-family: var(--mono); font-size: 8.5px; font-weight: 500; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); text-align: left; background: var(--tint); padding: 3px 6px; border-top: 0.75px solid var(--ink); border-bottom: 0.5px solid var(--rule); white-space: nowrap; }
+table.t td { font-size: 11.5px; line-height: 1.3; padding: 4px 6px; border-bottom: 0.5px solid var(--hair); vertical-align: top; }
+table.t th.n, table.t td.n { text-align: right; font-family: var(--mono); font-size: 10.4px; white-space: nowrap; }
+table.t tr.tot td { font-weight: 600; }
+table.t code { font-family: var(--mono); font-size: 10px; }
+table.t .g { color: var(--ink-3); }
+table.t .delta { vertical-align: -1px; margin: 0 0 0 4px; }
+
+/* stack / rollout strip: <div class="stack" style="grid-template-columns: repeat(N, minmax(0, 1fr))"> */
+.stack { display: grid; border: 0.75px solid var(--ink); }
+.stack > div { border-right: 0.5px solid var(--rule); padding: 3px 6px 4px; display: grid; gap: 1px; align-content: start; min-width: 0; }
+.stack > div:last-child { border-right: 0; }
+.stack .k { font-family: var(--mono); font-size: 8.5px; letter-spacing: .08em; color: var(--ink-3); }
+.stack .v { font-size: 11px; font-weight: 600; line-height: 1.15; }
+.stack .s { font-family: var(--mono); font-size: 8.5px; color: var(--ink-2); }
+.stack .sig { background: var(--sig-wash); }
+.stack .sig .s { color: var(--sig); font-weight: 600; }
+
+/* wireframe callouts: <ol class="co"><li><b class="n">1</b><span>...</span></li></ol> */
+ol.co { list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 3px 14px; }
+ol.co li { display: grid; grid-template-columns: 18px minmax(0, 1fr); font-size: 11.5px; line-height: 1.3; color: var(--ink-2); }
+ol.co li b.n { font-family: var(--mono); font-size: 8.5px; font-weight: 600; color: var(--ink); border: 0.6px solid var(--ink); border-radius: 50%; width: 13px; height: 13px; display: grid; place-items: center; margin-top: 1px; }
+ol.co code { font-family: var(--mono); font-size: 10px; color: var(--ink); }
+/* code inside prose: why notes, trace steps, tables */
+.why code, .t td code { font-family: var(--mono); font-size: 10px; }
+.step .t small code { font-family: var(--mono); font-size: 10px; }
+</style>
+</head>
+<body>
+<div class="canvas" id="canvas">
+<div class="sheet">
+  <div class="inner">
+
+    <!-- HEADER -->
+    <div class="head">
+      <div class="title">
+        <div class="kicker">Pocketweb (illustrative) &middot; HTTP middleware &middot; System plan &middot; one sheet</div>
+        <h1>API Rate Limiter &mdash; <em>Plan</em></h1>
+        <div class="dek">Throttle each API key with a token bucket: one atomic store call per request, standard RateLimit headers, and a 429 with Retry-After when the bucket is empty.</div>
+      </div>
+      <!-- NEW MODE: .status block. Revision mode would use the .rev table instead (see REFERENCE.md). -->
+      <div class="status">
+        <div><span class="k">STATUS</span><span class="v sig">PROPOSED &middot; NOT BUILT</span></div>
+        <div><span class="k">DELIVERY</span><span class="v">3 stacked PRs &middot; off by default</span></div>
+        <div><span class="k">CODE READ AT</span><span class="v">main @ 4f2c9e1</span></div>
+        <div><span class="k">NUMBERS</span><span class="v">none measured &middot; plan estimates</span></div>
+      </div>
+    </div>
+
+    <!-- BODY -->
+    <div class="body">
+
+      <!-- 01 DATA MODEL -->
+      <section class="panel">
+        <div class="ph"><span class="n">01</span><h2>Data model</h2><span class="s">Postgres + Redis &middot; red = new</span></div>
+        <svg viewBox="0 0 536 474" role="img" aria-label="Entity diagram. A new rate_limit_tiers table has many api_keys through a new nullable rate_limit_tier_id column; a null tier falls back to the Tier::DEFAULT constant. Each api key has zero or one token bucket, stored as a Redis hash rl:{key} with tokens and ts fields, never in Postgres.">
+          <defs>
+            <marker id="one" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M8,1 L8,11" stroke="#16191d" stroke-width="1"/></marker>
+            <marker id="many" viewBox="0 0 14 14" refX="13" refY="7" markerWidth="14" markerHeight="14" orient="auto-start-reverse"><path d="M3,7 L13,1 M3,7 L13,13 M3,7 L13,7" stroke="#16191d" stroke-width="1" fill="none"/></marker>
+            <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#16191d"/></marker>
+          </defs>
+
+          <!-- rate_limit_tiers (new) -->
+          <g>
+            <rect x="0.5" y="0.5" width="250" height="150" fill="#fff" stroke="var(--sig)" stroke-width="1.6"/>
+            <rect x="0.5" y="0.5" width="250" height="20" fill="var(--sig-wash)" stroke="var(--sig)" stroke-width="1.6"/>
+            <text x="8" y="14.5" class="m" font-size="10.5" font-weight="600">rate_limit_tiers</text>
+            <text x="242" y="14.5" class="m" font-size="9" text-anchor="end" fill="var(--sig)">NEW</text>
+            <g class="m" font-size="9.6">
+              <text x="8" y="38">id</text><text x="120" y="38" fill="#7b828b">bigint PK</text>
+              <text x="8" y="54" font-weight="600">name</text><text x="120" y="54" fill="#7b828b">string NN UQ</text>
+              <text x="8" y="70" font-weight="600">capacity</text><text x="120" y="70" fill="#7b828b">int NN &middot; burst</text>
+              <text x="8" y="86" font-weight="600">refill_per_sec</text><text x="120" y="86" fill="#7b828b">decimal(8,3) NN</text>
+              <text x="8" y="102">created_at</text><text x="120" y="102" fill="#7b828b">timestamp</text>
+            </g>
+            <line x1="8" y1="113" x2="243" y2="113" stroke="#dde0e3"/>
+            <text x="8" y="128" font-size="10.5" fill="#4a5058">seeded: default 60 / 1.0 &middot; partner 600 / 10</text>
+            <text x="8" y="142" font-size="10.5" fill="#4a5058">CHECK capacity &gt; 0 AND refill_per_sec &gt; 0</text>
+          </g>
+
+          <!-- api_keys (existing) -->
+          <g>
+            <rect x="300.5" y="0.5" width="235" height="130" fill="#fff" stroke="#16191d" stroke-width="0.75" stroke-dasharray="3 2"/>
+            <rect x="300.5" y="0.5" width="235" height="20" fill="var(--tint)" stroke="#16191d" stroke-width="0.75"/>
+            <text x="308" y="14.5" class="m" font-size="10.5" font-weight="600">api_keys</text>
+            <text x="527" y="14.5" class="m" font-size="9" text-anchor="end" fill="#7b828b">EXISTING</text>
+            <text x="308" y="38" class="m" font-size="9.6">id <tspan fill="#7b828b">bigint PK</tspan></text>
+            <text x="308" y="54" class="m" font-size="9.6">owner_id <tspan fill="#7b828b">FK NN</tspan></text>
+            <text x="308" y="70" class="m" font-size="9.6">token_digest <tspan fill="#7b828b">string UQ</tspan></text>
+            <text x="308" y="86" class="m" font-size="9.6" fill="var(--sig)" font-weight="600">+ rate_limit_tier_id <tspan fill="#7b828b" font-weight="400">FK NULL</tspan></text>
+            <line x1="308" y1="97" x2="528" y2="97" stroke="#dde0e3"/>
+            <text x="308" y="113" font-size="10.5" fill="#4a5058">null tier &#8594; Tier::DEFAULT</text>
+            <text x="308" y="126" font-size="10.5" fill="#4a5058">no backfill: every key starts null</text>
+          </g>
+          <line x1="251" y1="70" x2="300" y2="70" stroke="#16191d" stroke-width="0.9" marker-start="url(#one)" marker-end="url(#many)"/>
+          <text x="259" y="62" class="m" font-size="8.5" fill="#7b828b">1 : N</text>
+
+          <!-- Tier::DEFAULT (code constant) -->
+          <g>
+            <rect x="0.5" y="190.5" width="250" height="74" fill="#fff" stroke="#7b828b" stroke-width="0.75" stroke-dasharray="3 2"/>
+            <text x="8" y="207" class="m" font-size="9.8" font-weight="600">RateLimit::Tier::DEFAULT</text>
+            <text x="8" y="223" class="m" font-size="9" fill="#7b828b">capacity 60 &middot; refill 1.0/s</text>
+            <text x="8" y="240" font-size="10.5" fill="#4a5058">a code constant, not a row: the limiter</text>
+            <text x="8" y="254" font-size="10.5" fill="#4a5058">works before the migration runs</text>
+          </g>
+
+          <!-- bucket in Redis (external) -->
+          <g>
+            <rect x="300.5" y="190.5" width="235" height="140" fill="#fff" stroke="#16191d" stroke-width="0.75" stroke-dasharray="3 2"/>
+            <rect x="300.5" y="190.5" width="235" height="20" fill="var(--tint)" stroke="#16191d" stroke-width="0.75"/>
+            <text x="308" y="204.5" class="m" font-size="10.5" font-weight="600">rl:{key}</text>
+            <text x="527" y="204.5" class="m" font-size="9" text-anchor="end" fill="#7b828b">REDIS HASH</text>
+            <text x="308" y="228" class="m" font-size="9.6">tokens <tspan fill="#7b828b">float &middot; 0..capacity</tspan></text>
+            <text x="308" y="244" class="m" font-size="9.6">ts <tspan fill="#7b828b">ms &middot; Redis TIME</tspan></text>
+            <text x="308" y="260" class="m" font-size="9.6">TTL <tspan fill="#7b828b">capacity / refill + 1 s</tspan></text>
+            <line x1="308" y1="271" x2="528" y2="271" stroke="#dde0e3"/>
+            <text x="308" y="287" font-size="10.5" fill="#4a5058">{key} = key:&lt;api_key.id&gt; or ip:&lt;addr&gt;</text>
+            <text x="308" y="301" font-size="10.5" fill="#4a5058">expires when full: idle keys cost nothing</text>
+            <text x="308" y="315" font-size="10.5" fill="#4a5058">never written to Postgres</text>
+          </g>
+          <line x1="418" y1="131" x2="418" y2="190" stroke="#16191d" stroke-width="0.9" marker-start="url(#one)" marker-end="url(#one)"/>
+          <text x="410" y="158" class="m" font-size="8.5" fill="#7b828b" text-anchor="end">1 : 0..1</text>
+          <text x="410" y="170" class="m" font-size="8.5" fill="#7b828b" text-anchor="end">(created on first request)</text>
+
+          <!-- why -->
+          <g transform="translate(0,372)">
+            <line x1="0" y1="0" x2="536" y2="0" stroke="#b9bec4" stroke-width="0.5"/>
+            <text x="0" y="15" class="m" font-size="8.5" fill="#7b828b">WHY TIERS AS ROWS, BUCKETS IN THE STORE &#183; D2 &#183; D3</text>
+            <text x="0" y="30" font-size="11.2">Tiers are rows, so a limit changes without a deploy and a plan change edits one row.</text>
+            <text x="0" y="44" font-size="11.2">Buckets live in Redis: a write per request would make them the hottest rows in Postgres.</text>
+            <text x="0" y="58" font-size="11.2" fill="#4a5058">Rejected: a capacity column per key (no sharing) and a buckets table (write amplification).</text>
+          </g>
+        </svg>
+      </section>
+
+      <!-- 02 BOUNDARY -->
+      <section class="panel">
+        <div class="ph"><span class="n">02</span><h2>Limiter &middot; store boundary</h2><span class="s">adapter pattern</span></div>
+        <svg viewBox="0 0 516 477" role="img" aria-label="The middleware resolves a key and a tier, asks the Limiter to take one token, and applies headers from its Decision. Below a boundary line, the Limiter calls the RateLimit::Store interface, implemented by RedisStore with an atomic Lua script, MemoryStore for one process, and NullStore when disabled.">
+          <rect x="0.5" y="0.5" width="230" height="44" fill="#fff" stroke="var(--sig)" stroke-width="1.4"/>
+          <text x="10" y="18" class="m" font-size="9.8" font-weight="600">Middleware#call(env)</text>
+          <text x="10" y="34" class="m" font-size="9" fill="#7b828b">key_for(env) &middot; exempt paths skip</text>
+          <line x1="231" y1="22" x2="268" y2="22" stroke="#16191d" stroke-width="0.9" marker-end="url(#ar)"/>
+          <rect x="270.5" y="0.5" width="245" height="44" fill="#fff" stroke="var(--sig)" stroke-width="1.4"/>
+          <text x="280" y="18" class="m" font-size="9.8" font-weight="600">Limiter#take(key, tier)</text>
+          <text x="280" y="34" class="m" font-size="9" fill="#7b828b">&#8594; Decision(allowed, remaining, retry)</text>
+
+          <line x1="115" y1="45" x2="115" y2="80" stroke="#16191d" stroke-width="0.9" marker-end="url(#ar)"/>
+          <text x="121" y="66" class="m" font-size="8.5" fill="#4a5058">api_key</text>
+          <rect x="0.5" y="82.5" width="220" height="44" fill="#fff" stroke="var(--sig)" stroke-width="1.4"/>
+          <text x="10" y="100" class="m" font-size="9.4" font-weight="600">TierResolver#for(api_key)</text>
+          <text x="10" y="116" class="m" font-size="9" fill="#7b828b">60 s cache &middot; bust on rl:tiers</text>
+
+          <line x1="330" y1="45" x2="330" y2="80" stroke="#16191d" stroke-width="0.9" marker-end="url(#ar)"/>
+          <text x="336" y="66" class="m" font-size="8.5" fill="#4a5058">decision</text>
+          <rect x="240.5" y="82.5" width="180" height="44" fill="#fff" stroke="var(--sig)" stroke-width="1.4"/>
+          <text x="250" y="100" class="m" font-size="9.4" font-weight="600">Headers.apply(res, d)</text>
+          <text x="250" y="116" class="m" font-size="9" fill="#7b828b">RateLimit-* &middot; Retry-After</text>
+
+          <line x1="0" y1="150" x2="516" y2="150" stroke="var(--sig)" stroke-width="1.1" stroke-dasharray="6 4"/>
+          <text x="0" y="143" font-size="10.5" font-weight="700" fill="var(--sig)">&#9650; STORE-NEUTRAL &#183; middleware, limiter, headers</text>
+          <text x="0" y="164" font-size="10.5" fill="#4a5058">&#9660; STORE-SPECIFIC &#183; adapters only</text>
+
+          <line x1="480" y1="45" x2="480" y2="182" stroke="#16191d" stroke-width="0.9" marker-end="url(#ar)"/>
+          <text x="474" y="100" class="m" font-size="8.5" fill="#4a5058" text-anchor="end">take</text>
+          <rect x="130.5" y="184.5" width="370" height="44" fill="var(--tint)" stroke="#16191d" stroke-width="0.75"/>
+          <text x="140" y="202" class="m" font-size="9.8" font-weight="600">RateLimit::Store (interface)</text>
+          <text x="140" y="218" class="m" font-size="9" fill="#4a5058">take(key, capacity:, refill:) &#8594; [ok, tokens, ms_to_next]</text>
+
+          <line x1="200" y1="229" x2="88" y2="254" stroke="#16191d" stroke-width="0.8" stroke-dasharray="3 2" marker-end="url(#ar)"/>
+          <line x1="300" y1="229" x2="262" y2="254" stroke="#16191d" stroke-width="0.8" stroke-dasharray="3 2" marker-end="url(#ar)"/>
+          <line x1="400" y1="229" x2="430" y2="254" stroke="#16191d" stroke-width="0.8" stroke-dasharray="3 2" marker-end="url(#ar)"/>
+          <text x="446" y="246" class="m" font-size="8.5" fill="#7b828b">implements</text>
+
+          <rect x="0.5" y="256.5" width="172" height="80" fill="#fff" stroke="var(--sig)" stroke-width="1.4"/>
+          <text x="8" y="273" class="m" font-size="9.4" font-weight="600">RedisStore</text>
+          <text x="8" y="289" class="m" font-size="8.6" fill="#4a5058">EVALSHA bucket.lua</text>
+          <text x="8" y="303" class="m" font-size="8.6" fill="#4a5058">refill + take, one trip</text>
+          <text x="8" y="317" class="m" font-size="8.6" fill="#7b828b">timeout 50 ms</text>
+          <rect x="180.5" y="256.5" width="160" height="80" fill="#fff" stroke="var(--sig)" stroke-width="1.4"/>
+          <text x="188" y="273" class="m" font-size="9.4" font-weight="600">MemoryStore</text>
+          <text x="188" y="289" class="m" font-size="8.6" fill="#4a5058">Mutex + Hash</text>
+          <text x="188" y="303" class="m" font-size="8.6" fill="#4a5058">one process only</text>
+          <text x="188" y="317" class="m" font-size="8.6" fill="#7b828b">dev &middot; test</text>
+          <rect x="348.5" y="256.5" width="167" height="80" fill="#fff" stroke="var(--sig)" stroke-width="1.4"/>
+          <text x="356" y="273" class="m" font-size="9.4" font-weight="600">NullStore</text>
+          <text x="356" y="289" class="m" font-size="8.6" fill="#4a5058">always allows</text>
+          <text x="356" y="303" class="m" font-size="8.6" fill="#4a5058">no headers written</text>
+          <text x="356" y="317" class="m" font-size="8.6" fill="#7b828b">enabled: false</text>
+
+          <g transform="translate(0,352)">
+            <line x1="0" y1="0" x2="516" y2="0" stroke="#b9bec4" stroke-width="0.5"/>
+            <text x="0" y="14" class="m" font-size="8.5" fill="#7b828b">KEY</text>
+            <text x="0" y="28" font-size="11.2">key_for(env) = api key id when the request is authenticated, else ip:remote_ip.</text>
+            <rect x="0.5" y="40.5" width="515" height="76" fill="none" stroke="var(--sig)" stroke-width="0.75"/>
+            <text x="9" y="55" class="m" font-size="8.5" fill="var(--sig)">WHY ONE ATOMIC CALL &#183; D4</text>
+            <text x="9" y="70" font-size="11.2">Read-modify-write from Ruby races: two processes both read 1 token and both pass.</text>
+            <text x="9" y="84" font-size="11.2">The Lua script refills and takes in one round trip, using Redis TIME, not host clocks.</text>
+            <text x="9" y="104" font-size="11.2" font-weight="700" fill="var(--sig)">The limit holds across every process and host; one network trip per request.</text>
+          </g>
+        </svg>
+      </section>
+
+      <!-- 03 TRACE PATHS -->
+      <section class="panel r">
+        <div class="ph"><span class="n">03</span><h2>Trace paths</h2><span class="s">request &middot; admin &middot; failure</span></div>
+        <div style="display:grid; gap:8px; align-content:start; min-height:0">
+          <div>
+            <div class="lbl" style="margin-bottom:4px">R &middot; every API request</div>
+            <div class="trace">
+              <div class="step"><span class="i">R1</span><span class="t"><b>Middleware#call</b>(env)<br><small>paths in <code>exempt</code> (health checks) pass straight through</small></span></div>
+              <div class="step"><span class="i">R2</span><span class="t">key = <b>key_for</b>(env) &#8594; key:&lt;id&gt; | ip:&lt;addr&gt;<br><small><b>Why the IP fallback:</b> anonymous traffic is limited too</small></span></div>
+              <div class="step sub"><span class="i">R3</span><span class="t">tier = <b>TierResolver#for</b>(api_key)<br><small>per-process cache, 60 s</small></span></div>
+              <div class="step"><span class="i">R4</span><span class="t">d = <b>Limiter#take</b>(key, tier)</span></div>
+              <div class="step sub"><span class="i">R5</span><span class="t">RedisStore: EVALSHA bucket.lua<br><small>&#8594; [ok, tokens, ms_to_next] in one trip</small></span></div>
+              <div class="step"><span class="i">R6</span><span class="t">ok &#8594; @app.call(env) + <b>Headers.apply</b></span></div>
+              <div class="step"><span class="i">R7</span><span class="t">empty &#8594; <span style="color:var(--sig)">429</span> + Retry-After<br><small>the app is never called</small></span></div>
+            </div>
+          </div>
+          <div>
+            <div class="lbl" style="margin-bottom:4px">A &middot; admin changes a tier</div>
+            <div class="trace">
+              <div class="step"><span class="i">A1</span><span class="t">PATCH /admin/rate_limit_tiers/:id</span></div>
+              <div class="step sub"><span class="i">A2</span><span class="t"><b>TierResolver.bust!</b> &#8594; PUBLISH rl:tiers<br><small>every process drops its cache in &lt; 1 s</small></span></div>
+            </div>
+          </div>
+          <div>
+            <div class="lbl" style="margin-bottom:4px">F &middot; store down or slow</div>
+            <div class="trace">
+              <div class="step"><span class="i">F1</span><span class="t">timeout / error &#8594; allow + <b>rate_limit.store_error</b></span></div>
+            </div>
+          </div>
+          <div class="why"><span class="lbl">WHY FAIL OPEN &middot; D6</span>
+            <p>A limiter outage must not become an API outage. The 50 ms timeout caps what a slow store can add to every request.</p></div>
+        </div>
+      </section>
+
+      <!-- 04 API CONTRACT -->
+      <section class="panel b">
+        <div class="ph"><span class="n">04</span><h2>HTTP contract</h2><span class="s">headers &middot; 429</span></div>
+        <div style="display:grid; gap:7px; align-content:start">
+          <div class="box code"><span class="c"># allowed</span>
+HTTP/1.1 200 OK
+<b class="b">RateLimit-Limit</b>: 60
+<b class="b">RateLimit-Remaining</b>: 41
+<b class="b">RateLimit-Reset</b>: 19      <span class="c"># s until full</span>
+
+<span class="c"># bucket empty</span>
+HTTP/1.1 <span class="k">429 Too Many Requests</span>
+<b class="b">Retry-After</b>: 2            <span class="c"># s until 1 token</span>
+{"error":"rate_limited","retry_after":2}</div>
+          <ul class="inv">
+            <li><span><b>Unchanged:</b> every other status, header and body. <b>Config:</b> <code>enabled</code>, <code>store</code>, <code>exempt</code>.</span></li>
+            <li><span><b>Why these header names &middot; D7:</b> they follow the IETF RateLimit draft, which clients and proxies already parse. <code>X-RateLimit-*</code> was rejected: every API spells it differently.</span></li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- 05 CONSUMER + MECHANISM -->
+      <section class="panel b">
+        <div class="ph"><span class="n">05</span><h2>Consumer &middot; token bucket</h2><span class="s">app + bundled client</span></div>
+        <div style="display:grid; grid-template-columns: 1fr 148px; gap: 10px; align-content:start">
+          <div style="display:grid; gap:7px; align-content:start; min-width:0">
+            <div class="box code"><span class="c"># config.ru</span>
+<span class="k">use</span> <b class="b">Pocketweb::RateLimit::Middleware</b>,
+  store: RedisStore.new(REDIS),
+  exempt: ["/health"]
+
+<span class="c"># Pocketweb::Client: honour 429</span>
+<span class="k">if</span> res.code == "429" &amp;&amp; tries &lt; 3
+  sleep res["Retry-After"].to_f
+  <span class="k">retry</span>
+<span class="k">end</span></div>
+            <ul class="inv">
+              <li><span><b>Why a token bucket &middot; D1:</b> a fixed window lets twice the limit through across a window edge. The bucket allows one burst of <code>capacity</code>, then a steady <code>refill_per_sec</code>.</span></li>
+            </ul>
+          </div>
+          <svg viewBox="0 0 148 230" role="img" aria-label="Tokens over time for one key: the bucket starts full, a burst drains it to zero, requests get 429 while it is empty, then it refills at refill_per_sec.">
+            <text x="0" y="9" class="m" font-size="8.5" fill="#7b828b">TOKENS / TIME</text>
+            <line x1="6" y1="18" x2="6" y2="152" stroke="#16191d" stroke-width="0.8"/>
+            <line x1="6" y1="152" x2="144" y2="152" stroke="#16191d" stroke-width="0.8"/>
+            <line x1="6" y1="30" x2="144" y2="30" stroke="#7b828b" stroke-width="0.6" stroke-dasharray="3 2"/>
+            <text x="100" y="26" class="m" font-size="8" fill="#7b828b">capacity</text>
+            <rect x="56" y="132" width="32" height="20" fill="var(--sig-wash)"/>
+            <text x="72" y="146" class="m" font-size="8" text-anchor="middle" fill="var(--sig)">429</text>
+            <polyline points="6,30 34,30 56,152 88,152 144,72" fill="none" stroke="#16191d" stroke-width="1.3"/>
+            <text x="47" y="66" class="m" font-size="8" fill="#4a5058">burst</text>
+            <text x="116" y="142" class="m" font-size="8" fill="#4a5058">refill</text>
+            <text x="0" y="176" font-size="10" fill="#4a5058">dashed: capacity</text>
+            <text x="0" y="189" font-size="10" fill="#4a5058">slope: refill_per_sec</text>
+            <text x="0" y="202" font-size="10" fill="var(--sig)">red: requests refused</text>
+            <text x="0" y="218" class="m" font-size="8.5" fill="#7b828b">default 60 / 1.0 per s</text>
+          </svg>
+        </div>
+      </section>
+
+      <!-- 06 GUARANTEES + TITLE BLOCK -->
+      <section class="panel r b">
+        <div class="ph"><span class="n">06</span><h2>Guarantees &middot; open items</h2><span class="s">rollout: 3 PRs</span></div>
+        <div style="display:grid; grid-template-rows: auto auto 1fr auto; gap: 7px; min-height: 0">
+          <ul class="inv">
+            <li><span><b>Off by default:</b> <code>enabled: false</code> uses NullStore, so responses are byte-identical to today.</span></li>
+            <li><span>No key gets more than <code>capacity</code> requests in a burst, across all processes (D4).</span></li>
+            <li><span><b>O1</b> a lower tier for anonymous <code>ip:</code> keys? Proposed: <code>anonymous</code> 20 / 0.2.</span></li>
+            <li><span><b>Fail open</b> on a store error or timeout: the request is allowed and counted (D6).</span></li>
+            <li><span><b>Why three PRs:</b> each ships alone. L1 has no reader, L2 is off by default, L3 acts only when <code>enabled</code> flips.</span></li>
+            <li><span style="color:var(--ink-2)">Out of scope: per-route costs, quotas shared across regions.</span></li>
+          </ul>
+          <div class="stack" style="grid-template-columns: repeat(3, minmax(0, 1fr))">
+            <div><span class="k">L1 &middot; S</span><span class="v">tiers table + resolver</span><span class="s">inert</span></div>
+            <div><span class="k">L2 &middot; M</span><span class="v">middleware + memory store</span><span class="s">off by default</span></div>
+            <div class="sig"><span class="k">L3 &middot; M</span><span class="v">Redis store + headers</span><span class="s">the switch</span></div>
+          </div>
+          <div></div>
+          <div class="tb">
+            <div class="w3"><span class="k">TITLE</span><span class="v big">Rate Limiter &middot; System Plan</span></div>
+            <div><span class="k">PROJECT</span><span class="v">Pocketweb &middot; API</span></div>
+            <div><span class="k">DWG</span><span class="v">PLAN.md</span></div>
+            <div><span class="k">REV</span><span class="v sig">A &middot; PROPOSED</span></div>
+            <div><span class="k">STACK</span><span class="v">3 PRs &middot; not opened</span></div>
+            <div><span class="k">DATE</span><span class="v">2026-09-08</span></div>
+            <div><span class="k">SHEET</span><span class="v">1 OF 1 &middot; NTS</span></div>
+            <div class="w3"><span class="k">SOURCE</span><span class="v">illustrative plan for a fictional framework &middot; no measured numbers</span></div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+  // Self-check, read by scripts/render.rb. Runs only with ?lint in the URL; writes JSON into #one-pager-lint.
+  (function () {
+    if (!/[?&]lint\b/.test(location.search)) return;
+    function snippet(el) { return (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 70); }
+    function run() {
+      var issues = [];
+      var canvas = document.getElementById('canvas');
+      var meta = document.querySelector('meta[name="one-pager:size"]');
+      if (meta) {
+        var size = meta.content.split('x').map(Number);
+        if (canvas.offsetWidth !== size[0] || canvas.offsetHeight !== size[1]) issues.push({ kind: 'canvas-size', detail: 'meta says ' + meta.content + ', .canvas is ' + canvas.offsetWidth + 'x' + canvas.offsetHeight });
+      }
+      var head = document.querySelector('.head');
+      if (head) {
+        var headBottom = head.getBoundingClientRect().bottom;
+        head.querySelectorAll('*').forEach(function (el) {
+          if (el.children.length === 0 && el.textContent.trim() && el.getBoundingClientRect().bottom > headBottom + 1) issues.push({ kind: 'header-overflow', detail: snippet(el) });
+        });
+      }
+      document.querySelectorAll('.panel').forEach(function (panel, index) {
+        if (panel.scrollHeight > panel.clientHeight + 1 || panel.scrollWidth > panel.clientWidth + 1) {
+          issues.push({ kind: 'panel-overflow', panel: index + 1, detail: (panel.querySelector('h2') || panel).textContent.trim() + ': content ' + panel.scrollWidth + 'x' + panel.scrollHeight + ' > box ' + panel.clientWidth + 'x' + panel.clientHeight });
+        }
+      });
+      document.querySelectorAll('.canvas *').forEach(function (el) {
+        if (el.closest('svg') || el.closest('.ticks')) return;
+        var style = getComputedStyle(el);
+        var clips = style.overflow === 'hidden' || style.overflowX === 'hidden' || style.textOverflow === 'ellipsis';
+        var clippedY = style.overflow === 'hidden' || style.overflowY === 'hidden';
+        if (clips && el.scrollWidth > el.clientWidth + 1 && !el.classList.contains('canvas')) issues.push({ kind: 'clipped-text', detail: snippet(el) });
+        else if (clippedY && el.scrollHeight > el.clientHeight + 1 && !el.classList.contains('canvas') && !el.classList.contains('panel')) issues.push({ kind: 'clipped-text', detail: 'bottom cut off: ' + snippet(el) });
+        if (el.children.length === 0 && el.textContent.trim() && parseFloat(style.fontSize) < 7.5) issues.push({ kind: 'tiny-text', detail: style.fontSize + ' ' + snippet(el) });
+      });
+      document.querySelectorAll('.canvas svg').forEach(function (svg, svgIndex) {
+        var vb = svg.viewBox && svg.viewBox.baseVal;
+        var boxes = [];
+        svg.querySelectorAll('text').forEach(function (text) {
+          if (text.closest('marker, defs')) return;
+          var b; try { b = text.getBBox(); } catch (e) { return; }
+          if (!b.width) return;
+          var ctm = text.getCTM(), root = svg.getCTM();
+          var dx = ctm && root ? (ctm.e - root.e) / root.a : 0, dy = ctm && root ? (ctm.f - root.f) / root.d : 0;
+          var box = { x: b.x + dx, y: b.y + dy, w: b.width, h: b.height, label: snippet(text) };
+          boxes.push(box);
+          if (vb && vb.width && (box.x < vb.x - 1 || box.y < vb.y - 14 || box.x + box.w > vb.x + vb.width + 1 || box.y + box.h > vb.y + vb.height + 1)) {
+            issues.push({ kind: 'svg-text-outside-viewbox', svg: svgIndex + 1, detail: box.label });
+          }
+        });
+// A label that starts inside a box must also end inside it, 5 units clear of the right edge.
+var rects = [];
+svg.querySelectorAll('rect').forEach(function (rect) {
+  if (rect.closest('marker, defs')) return;
+  var rb; try { rb = rect.getBBox(); } catch (e) { return; }
+  var rctm = rect.getCTM(), rroot = svg.getCTM();
+  var rdx = rctm && rroot ? (rctm.e - rroot.e) / rroot.a : 0, rdy = rctm && rroot ? (rctm.f - rroot.f) / rroot.d : 0;
+  if (rb.width > 4 && rb.height > 4) rects.push({ x: rb.x + rdx, y: rb.y + rdy, w: rb.width, h: rb.height });
+});
+boxes.forEach(function (t) {
+  var sx = t.x + 1, sy = t.y + t.h / 2, host = null;
+  rects.forEach(function (r) {
+    if (sx >= r.x && sx <= r.x + r.w && sy >= r.y && sy <= r.y + r.h && (!host || r.w * r.h <= host.w * host.h)) host = r;  // ties: the last-painted (visible) box wins
+  });
+  if (host && (t.x + t.w > host.x + host.w - 5 || t.y + t.h > host.y + host.h + 1)) issues.push({ kind: 'svg-text-exceeds-box', svg: svgIndex + 1, detail: t.label });
+});
+// A connector line must not cross a label (the label box shrunk 1.5 units, so lines that
+// merely graze an edge or run beside a label don't count).
+svg.querySelectorAll('line').forEach(function (line) {
+  if (line.closest('marker, defs')) return;
+  var lctm = line.getCTM(), lroot = svg.getCTM();
+  var ldx = lctm && lroot ? (lctm.e - lroot.e) / lroot.a : 0, ldy = lctm && lroot ? (lctm.f - lroot.f) / lroot.d : 0;
+  var x1 = line.x1.baseVal.value + ldx, y1 = line.y1.baseVal.value + ldy, x2 = line.x2.baseVal.value + ldx, y2 = line.y2.baseVal.value + ldy;
+  boxes.forEach(function (t) {
+    var bx1 = t.x + 1.5, by1 = t.y + 1.5, bx2 = t.x + t.w - 1.5, by2 = t.y + t.h - 1.5;
+    if (bx2 <= bx1 || by2 <= by1) return;
+    // Liang-Barsky clip of the segment against the label box.
+    var dx = x2 - x1, dy = y2 - y1, p = [-dx, dx, -dy, dy], q = [x1 - bx1, bx2 - x1, y1 - by1, by2 - y1], u1 = 0, u2 = 1, hit = true;
+    for (var k = 0; k < 4; k++) {
+      if (p[k] === 0) { if (q[k] < 0) { hit = false; break; } }
+      else { var r = q[k] / p[k]; if (p[k] < 0) { if (r > u1) u1 = r; } else { if (r < u2) u2 = r; } if (u1 > u2) { hit = false; break; } }
+    }
+    if (hit) issues.push({ kind: 'svg-line-through-text', svg: svgIndex + 1, detail: t.label });
+  });
+});
+        for (var i = 0; i < boxes.length; i++) {
+          for (var j = i + 1; j < boxes.length; j++) {
+            var a = boxes[i], c = boxes[j];
+            var ox = Math.min(a.x + a.w, c.x + c.w) - Math.max(a.x, c.x);
+            var oy = Math.min(a.y + a.h, c.y + c.h) - Math.max(a.y, c.y);
+            if (ox > 1.5 && oy > 2.5) issues.push({ kind: 'svg-text-overlap', svg: svgIndex + 1, detail: '"' + a.label + '" x "' + c.label + '"' });
+          }
+        }
+      });
+      // Advisory: every panel should say WHY (a "WHY ..." note, a "Why ...:" lead, or a WHY box).
+      document.querySelectorAll(".panel").forEach(function (panel, index) {
+        if (!/\bwhy\b/i.test(panel.innerText || panel.textContent)) issues.push({ kind: "no-why", advisory: true, panel: index + 1, detail: (panel.querySelector("h2") || panel).textContent.trim() });
+      });
+      var families = {};
+      document.fonts.forEach(function (face) { if (face.status === 'loaded') families[face.family.replace(/"/g, '')] = true; });
+      ['IBM Plex Mono', 'IBM Plex Sans Condensed'].forEach(function (family) { if (!families[family]) issues.push({ kind: 'font-fallback', detail: family + ' did not load' }); });
+      var out = document.createElement('pre');
+      out.id = 'one-pager-lint';
+      out.textContent = JSON.stringify({ issues: issues });
+      document.body.appendChild(out);
+    }
+    (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(function () { setTimeout(run, 50); });
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,562 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- The canvas size scripts/render.rb renders at. Keep it equal to .canvas width/height below. -->
+<meta name="one-pager:size" content="1680x1050">
+<title>Notification Retries Spec Sheet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one fixed drawing sheet. Single frame, header + revision/status block,
+   a 3x2 grid of numbered panels, title block bottom-right. Ink on paper; ONE signal colour
+   (revision mode: what changed in this revision; new mode: what is new in the system). */
+:root {
+  --paper: #f5f6f3;
+  --sheet: #fbfbf9;
+  --ink: #16191d;
+  --ink-2: #4a5058;
+  --ink-3: #7b828b;
+  --rule: #b9bec4;
+  --hair: #dde0e3;
+  --sig: #d1431c;
+  --sig-wash: #fbe9e3;
+  --tint: #eef0ec;
+  --cond: "IBM Plex Sans Condensed", "Arial Narrow", "Helvetica Neue", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: light;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--paper); color: var(--ink); }
+.canvas { position: relative; width: 1680px; height: 1050px; overflow: hidden; font-family: var(--cond); font-size: 12.5px; line-height: 1.35; color: var(--ink); }
+.sheet { position: absolute; inset: 12px; background: var(--sheet); border: 1.5px solid var(--ink); }
+.inner { position: absolute; inset: 0; display: grid; grid-template-rows: 82px minmax(0, 1fr); }
+
+/* header */
+.head { display: grid; grid-template-columns: 1fr 520px; border-bottom: 0.75px solid var(--ink); min-width: 0; }
+.title { padding: 11px 16px 0; display: grid; align-content: start; gap: 3px; min-width: 0; }
+.title .kicker { font-family: var(--mono); font-size: 10px; letter-spacing: .14em; color: var(--ink-3); text-transform: uppercase; }
+.title h1 { font-size: 26px; font-weight: 700; letter-spacing: .01em; line-height: 1.05; text-transform: uppercase; }
+.title h1 em { font-style: normal; color: var(--sig); }
+.title .dek { font-size: 13px; color: var(--ink-2); }
+/* revision mode: REV table. new mode: STATUS fields. Both are 4 equal rows under a 16px head row. */
+.rev { border-left: 0.75px solid var(--ink); font-family: var(--mono); font-size: 9.5px; display: grid; grid-template-rows: 16px 1fr 1fr 1fr; min-width: 0; }
+.rev div { display: grid; grid-template-columns: 34px minmax(0, 1fr) 74px; border-bottom: 0.5px solid var(--rule); align-items: center; min-width: 0; }
+.rev div:last-child { border-bottom: 0; }
+.rev div span { padding: 0 7px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rev div span + span { border-left: 0.5px solid var(--rule); height: 100%; display: flex; align-items: center; }
+.rev .rh { color: var(--ink-3); letter-spacing: .08em; }
+.rev .cur { color: var(--sig); font-weight: 600; }
+.status { border-left: 0.75px solid var(--ink); font-family: var(--mono); font-size: 9.5px; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; min-width: 0; }
+.status > div { border-bottom: 0.5px solid var(--rule); border-right: 0.5px solid var(--rule); padding: 5px 8px; display: grid; align-content: center; gap: 2px; min-width: 0; }
+.status > div:nth-child(2n) { border-right: 0; }
+.status > div:nth-last-child(-n+2) { border-bottom: 0; }
+.status .k { color: var(--ink-3); letter-spacing: .1em; font-size: 7.5px; }
+.status .v { font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.status .v.sig { color: var(--sig); font-weight: 600; }
+
+/* body grid: default 3 columns x 2 rows */
+.body { display: grid; grid-template-columns: 560fr 540fr 520fr; grid-template-rows: 538px minmax(0, 1fr); min-height: 0; }
+.panel { border-right: 0.75px solid var(--ink); border-bottom: 0.75px solid var(--ink); padding: 9px 12px 10px; position: relative; min-width: 0; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 6px; }
+.panel.r { border-right: 0; }
+.panel.b { border-bottom: 0; }
+.ph { display: flex; align-items: baseline; gap: 8px; border-bottom: 0.5px solid var(--rule); padding-bottom: 4px; min-width: 0; }
+.ph .n { font-family: var(--mono); font-size: 10px; font-weight: 600; border: 0.75px solid var(--ink); padding: 0 4px; line-height: 14px; }
+.ph h2 { font-size: 13px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; white-space: nowrap; }
+.ph .s { margin-left: auto; font-family: var(--mono); font-size: 9.5px; color: var(--ink-3); white-space: nowrap; }
+/* revision delta marker for HTML headings: <span class="delta" data-rev="B"></span> */
+.delta { display: inline-block; width: 15px; height: 13px; position: relative; margin: 0 2px; flex: none; align-self: center; }
+.delta::before { content: ""; position: absolute; left: 0; top: 0; border-left: 7.5px solid transparent; border-right: 7.5px solid transparent; border-bottom: 13px solid var(--sig); }
+.delta::after { content: attr(data-rev); position: absolute; left: 4.4px; top: 2.6px; font-family: var(--mono); font-size: 7.5px; font-weight: 700; color: #fff; }
+
+svg { display: block; width: 100%; height: 100%; overflow: visible; }
+svg text { font-family: var(--cond); }
+/* NEVER `svg text { fill: ... }`: CSS beats the fill attribute and silently recolours every label. */
+svg text:not([fill]) { fill: var(--ink); }
+svg .m, svg .m text { font-family: var(--mono); }
+.code { font-family: var(--mono); font-size: 10.6px; line-height: 1.5; white-space: pre; color: var(--ink); overflow: hidden; }
+.code .c { color: var(--ink-3); }
+.code .k { color: var(--sig); }
+.code .b { font-weight: 600; }
+.box { border: 0.75px solid var(--ink); background: #fff; padding: 6px 8px; min-width: 0; }
+.lbl { font-family: var(--mono); font-size: 9px; letter-spacing: .1em; color: var(--ink-3); text-transform: uppercase; }
+
+/* why notes: every panel says why (panel-foot note, or .key for the one decision the sheet turns on) */
+.why { display: grid; gap: 2px; border-top: 0.5px solid var(--rule); padding-top: 5px; min-width: 0; }
+.why p { font-size: 11.5px; line-height: 1.32; color: var(--ink-2); }
+.why.key { border: 0.75px solid var(--sig); padding: 6px 9px; }
+.why.key .lbl { color: var(--sig); }
+.why.key p { color: var(--ink); }
+
+/* traces */
+.trace { display: grid; gap: 2px; }
+.step { display: grid; grid-template-columns: 22px minmax(0, 1fr); column-gap: 6px; align-items: start; }
+.step .i { font-family: var(--mono); font-size: 9px; font-weight: 600; color: var(--ink-2); border: 0.6px solid var(--ink-2); border-radius: 50%; width: 17px; height: 17px; display: grid; place-items: center; margin-top: 1px; }
+.step .t { font-family: var(--mono); font-size: 10.6px; line-height: 1.45; }
+.step .t small { font-family: var(--cond); font-size: 11.5px; color: var(--ink-2); }
+.step.sub .i { border-style: dashed; }
+
+/* lists */
+ul.inv { list-style: none; display: grid; gap: 4px; align-content: start; }
+ul.inv li { display: grid; grid-template-columns: 12px minmax(0, 1fr); font-size: 12px; line-height: 1.32; }
+ul.inv li::before { content: "\25B8"; font-size: 9px; color: var(--ink-2); padding-top: 2px; }
+ul.inv code { font-family: var(--mono); font-size: 10.5px; white-space: nowrap; }
+
+/* title block */
+.tb { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5px; background: var(--rule); border: 0.75px solid var(--ink); font-family: var(--mono); font-size: 9px; }
+.tb > div { background: var(--sheet); padding: 3px 6px 4px; display: grid; gap: 1px; min-width: 0; }
+.tb > div.w2 { grid-column: span 2; }
+.tb > div.w3 { grid-column: span 3; }
+.tb .k { color: var(--ink-3); letter-spacing: .1em; font-size: 7.5px; }
+.tb .v { color: var(--ink); font-size: 10px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tb .v.big { font-family: var(--cond); font-size: 15px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
+.tb .v.sig { color: var(--sig); }
+
+/* data table (blast radius, decisions, request/response): <table class="t"> */
+table.t { width: 100%; border-collapse: collapse; }
+table.t th { font-family: var(--mono); font-size: 8.5px; font-weight: 500; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); text-align: left; background: var(--tint); padding: 3px 6px; border-top: 0.75px solid var(--ink); border-bottom: 0.5px solid var(--rule); white-space: nowrap; }
+table.t td { font-size: 11.5px; line-height: 1.3; padding: 4px 6px; border-bottom: 0.5px solid var(--hair); vertical-align: top; }
+table.t th.n, table.t td.n { text-align: right; font-family: var(--mono); font-size: 10.4px; white-space: nowrap; }
+table.t tr.tot td { font-weight: 600; }
+table.t code { font-family: var(--mono); font-size: 10px; }
+table.t .g { color: var(--ink-3); }
+table.t .delta { vertical-align: -1px; margin: 0 0 0 4px; }
+
+/* stack / rollout strip: <div class="stack" style="grid-template-columns: repeat(N, minmax(0, 1fr))"> */
+.stack { display: grid; border: 0.75px solid var(--ink); }
+.stack > div { border-right: 0.5px solid var(--rule); padding: 3px 6px 4px; display: grid; gap: 1px; align-content: start; min-width: 0; }
+.stack > div:last-child { border-right: 0; }
+.stack .k { font-family: var(--mono); font-size: 8.5px; letter-spacing: .08em; color: var(--ink-3); }
+.stack .v { font-size: 11px; font-weight: 600; line-height: 1.15; }
+.stack .s { font-family: var(--mono); font-size: 8.5px; color: var(--ink-2); }
+.stack .sig { background: var(--sig-wash); }
+.stack .sig .s { color: var(--sig); font-weight: 600; }
+
+/* wireframe callouts: <ol class="co"><li><b class="n">1</b><span>...</span></li></ol> */
+ol.co { list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 3px 14px; }
+ol.co li { display: grid; grid-template-columns: 18px minmax(0, 1fr); font-size: 11.5px; line-height: 1.3; color: var(--ink-2); }
+ol.co li b.n { font-family: var(--mono); font-size: 8.5px; font-weight: 600; color: var(--ink); border: 0.6px solid var(--ink); border-radius: 50%; width: 13px; height: 13px; display: grid; place-items: center; margin-top: 1px; }
+ol.co code { font-family: var(--mono); font-size: 10px; color: var(--ink); }
+/* code inside prose: why notes, trace steps, tables */
+.why code, .t td code { font-family: var(--mono); font-size: 10px; }
+.step .t small code { font-family: var(--mono); font-size: 10px; }
+</style>
+</head>
+<body>
+<div class="canvas" id="canvas">
+<div class="sheet">
+  <div class="inner">
+
+    <!-- HEADER -->
+    <div class="head">
+      <div class="title">
+        <div class="kicker">Inkwell blog (illustrative) &middot; Background jobs &middot; System plan &middot; one sheet</div>
+        <h1>Notification Retries &mdash; <em>Plan v2</em></h1>
+        <div class="dek">Retry failed email and webhook deliveries per job class, with capped full-jitter backoff, and park the ones that never succeed in a dead-letter table an admin can replay.</div>
+      </div>
+      <div class="rev">
+        <div class="rh"><span>REV</span><span>DESCRIPTION</span><span>DATE</span></div>
+        <div><span>A</span><span>v1 built as #41&ndash;#43; review: retry storm, no dead letter</span><span>2026-06-09</span></div>
+        <div class="cur"><span>B</span><span>Per-class policy &middot; error classes split &middot; full jitter &middot; dead_jobs</span><span>2026-09-17</span></div>
+        <div><span>&nbsp;</span><span style="color:var(--ink-3)">&#9651;B marks every element that changed in Rev B</span><span style="color:var(--ink-3)">IN REVIEW</span></div>
+      </div>
+    </div>
+
+    <!-- BODY -->
+    <div class="body">
+
+      <!-- 01 DATA MODEL -->
+      <section class="panel">
+        <div class="ph"><span class="n">01</span><h2>Data model</h2><span class="delta" data-rev="B"></span><span class="s">Postgres &middot; red = changed in B</span></div>
+        <svg viewBox="0 0 536 474" role="img" aria-label="Entity diagram. posts and subscribers each have many notification_deliveries. A delivery now stores its own attempts and last_error_class and gains a dead state. A new dead_jobs table records any job that exhausted its retries, pointing at the delivery through its args, with no foreign key.">
+          <defs>
+            <marker id="one" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M8,1 L8,11" stroke="#16191d" stroke-width="1"/></marker>
+            <marker id="many" viewBox="0 0 14 14" refX="13" refY="7" markerWidth="14" markerHeight="14" orient="auto-start-reverse"><path d="M3,7 L13,1 M3,7 L13,13 M3,7 L13,7" stroke="#16191d" stroke-width="1" fill="none"/></marker>
+            <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#16191d"/></marker>
+          </defs>
+
+          <!-- posts / subscribers (existing) -->
+          <g>
+            <rect x="0.5" y="0.5" width="150" height="58" fill="#fff" stroke="#16191d" stroke-width="0.75" stroke-dasharray="3 2"/>
+            <rect x="0.5" y="0.5" width="150" height="18" fill="var(--tint)" stroke="#16191d" stroke-width="0.75"/>
+            <text x="8" y="13.5" class="m" font-size="10" font-weight="600">posts</text>
+            <text x="8" y="34" class="m" font-size="9.5">id <tspan fill="#7b828b">bigint PK</tspan></text>
+            <text x="8" y="50" font-size="10.5" fill="#4a5058">untouched</text>
+          </g>
+          <g>
+            <rect x="0.5" y="90.5" width="150" height="58" fill="#fff" stroke="#16191d" stroke-width="0.75" stroke-dasharray="3 2"/>
+            <rect x="0.5" y="90.5" width="150" height="18" fill="var(--tint)" stroke="#16191d" stroke-width="0.75"/>
+            <text x="8" y="103.5" class="m" font-size="10" font-weight="600">subscribers</text>
+            <text x="8" y="124" class="m" font-size="9.5">id <tspan fill="#7b828b">bigint PK</tspan></text>
+            <text x="8" y="140" font-size="10.5" fill="#4a5058">untouched</text>
+          </g>
+          <line x1="151" y1="30" x2="190" y2="30" stroke="#16191d" stroke-width="0.9" marker-start="url(#one)" marker-end="url(#many)"/>
+          <text x="156" y="23" class="m" font-size="8.5" fill="#7b828b">1:N</text>
+          <line x1="151" y1="120" x2="190" y2="120" stroke="#16191d" stroke-width="0.9" marker-start="url(#one)" marker-end="url(#many)"/>
+          <text x="156" y="113" class="m" font-size="8.5" fill="#7b828b">1:N</text>
+
+          <!-- notification_deliveries (owner) -->
+          <g>
+            <rect x="190.5" y="0.5" width="345" height="196" fill="#fff" stroke="#16191d" stroke-width="1.6"/>
+            <rect x="190.5" y="0.5" width="345" height="20" fill="#16191d"/>
+            <text x="198" y="14.5" class="m" font-size="10.5" font-weight="600" fill="#fff">notification_deliveries</text>
+            <g class="m" font-size="9.6">
+              <text x="198" y="38">id</text><text x="330" y="38" fill="#7b828b">bigint PK</text>
+              <text x="198" y="54">post_id, subscriber_id</text><text x="330" y="54" fill="#7b828b">FK NN</text>
+              <text x="198" y="70">channel</text><text x="330" y="70" fill="#7b828b">enum: email | webhook</text>
+              <text x="198" y="86" font-weight="600">state</text><text x="330" y="86" fill="#7b828b">pending|sent|failed|<tspan fill="var(--sig)" font-weight="600">dead</tspan></text>
+              <text x="198" y="102" font-weight="600" fill="var(--sig)">attempts</text><text x="330" y="102" fill="#7b828b">int NN &middot; def 0</text>
+              <text x="198" y="118" font-weight="600" fill="var(--sig)">last_error_class</text><text x="330" y="118" fill="#7b828b">string</text>
+              <text x="198" y="134">next_attempt_at</text><text x="330" y="134" fill="#7b828b">timestamp</text>
+            </g>
+            <line x1="198" y1="146" x2="528" y2="146" stroke="#dde0e3"/>
+            <text x="198" y="162" class="m" font-size="9.6" font-weight="600">UNIQUE (post_id, subscriber_id, channel)</text>
+            <text x="198" y="179" font-size="10.8" fill="#4a5058">Red columns are new in B; they were job args in A.</text>
+            <text x="198" y="192" font-size="10.8" fill="#4a5058">sent_at already existed; unchanged.</text>
+          </g>
+
+          <!-- dead_jobs (new) -->
+          <g>
+            <rect x="190.5" y="250.5" width="345" height="150" fill="#fff" stroke="var(--sig)" stroke-width="1.6"/>
+            <rect x="190.5" y="250.5" width="345" height="20" fill="var(--sig-wash)" stroke="var(--sig)" stroke-width="1.6"/>
+            <text x="198" y="264.5" class="m" font-size="10.5" font-weight="600">dead_jobs</text>
+            <text x="512" y="264.5" class="m" font-size="9" text-anchor="end" fill="var(--sig)">NEW &middot; any job class</text>
+            <g class="m" font-size="9.6">
+              <text x="198" y="288">id</text><text x="330" y="288" fill="#7b828b">bigint PK</text>
+              <text x="198" y="304" font-weight="600">job_class, args</text><text x="330" y="304" fill="#7b828b">string NN &middot; jsonb NN</text>
+              <text x="198" y="320" font-weight="600">error_class</text><text x="330" y="320" fill="#7b828b">string NN</text>
+              <text x="198" y="336">error_message</text><text x="330" y="336" fill="#7b828b">text</text>
+              <text x="198" y="352">attempts, failed_at</text><text x="330" y="352" fill="#7b828b">int NN &middot; timestamp NN</text>
+              <text x="198" y="368" font-weight="600">replayed_at</text><text x="330" y="368" fill="#7b828b">timestamp &middot; null = parked</text>
+            </g>
+            <line x1="198" y1="378" x2="528" y2="378" stroke="#dde0e3"/>
+            <text x="198" y="393" class="m" font-size="9.6" font-weight="600">INDEX (job_class, failed_at)</text>
+          </g>
+          <g transform="translate(521,240)"><path d="M0,13 L7.5,0 L15,13 Z" fill="var(--sig)"/><text x="4.3" y="11.2" class="m" font-size="7.5" font-weight="700" fill="#fff">B</text></g>
+          <line x1="362" y1="197" x2="362" y2="250" stroke="#16191d" stroke-width="0.9" stroke-dasharray="3 2"/>
+          <text x="370" y="220" class="m" font-size="8.5" fill="#7b828b">args.delivery_id</text>
+          <text x="370" y="232" class="m" font-size="8.5" fill="#7b828b">no FK: generic table</text>
+
+          <!-- removed vs rev A -->
+          <g transform="translate(0,262)">
+            <text x="0" y="10" class="m" font-size="8.5" fill="#7b828b">REMOVED VS REV A</text>
+            <text x="0" y="27" font-size="10.8" fill="#4a5058">attempt count in job args</text>
+            <text x="0" y="41" font-size="10.8" fill="#4a5058">global RETRIES = 25</text>
+            <text x="0" y="55" font-size="10.8" fill="#4a5058">exhausted jobs only logged</text>
+            <text x="0" y="69" font-size="10.8" fill="#4a5058">retry_on StandardError</text>
+          </g>
+
+          <!-- why -->
+          <g transform="translate(0,414)">
+            <line x1="0" y1="0" x2="536" y2="0" stroke="#b9bec4" stroke-width="0.5"/>
+            <text x="0" y="15" class="m" font-size="8.5" fill="#7b828b">WHY A DEAD-LETTER TABLE &#183; R2</text>
+            <text x="0" y="30" font-size="11.2">Rev A logged a job after its 25th failure and dropped it: nobody could count or replay it.</text>
+            <text x="0" y="44" font-size="11.2">A table is queryable beside the deliveries and survives a queue flush.</text>
+            <text x="0" y="58" font-size="11.2" fill="#4a5058">Rejected: the queue&#8217;s own dead set (adapter-specific, lost with the queue store).</text>
+          </g>
+        </svg>
+      </section>
+
+      <!-- 02 BOUNDARY -->
+      <section class="panel">
+        <div class="ph"><span class="n">02</span><h2>Retry policy &middot; queue boundary</h2><span class="delta" data-rev="B"></span><span class="s">adapter pattern</span></div>
+        <svg viewBox="0 0 516 477" role="img" aria-label="DeliverNotificationJob rescues an error and asks ErrorClassifier whether to retry, discard or dead-letter it, and asks RetryPolicy.for its class for the limits and backoff. Below a boundary line, the QueueAdapter interface schedules the retry; Sidekiq, GoodJob and an inline test adapter implement it.">
+          <rect x="0.5" y="0.5" width="250" height="44" fill="#fff" stroke="#16191d" stroke-width="0.9"/>
+          <text x="10" y="18" class="m" font-size="9.6" font-weight="600">DeliverNotificationJob#perform</text>
+          <text x="10" y="34" class="m" font-size="9" fill="#7b828b">(delivery_id) &middot; rescue =&gt; e</text>
+
+          <line x1="80" y1="45" x2="80" y2="80" stroke="#16191d" stroke-width="0.9" marker-end="url(#ar)"/>
+          <text x="86" y="66" class="m" font-size="8.5" fill="#4a5058">e</text>
+          <rect x="0.5" y="82.5" width="236" height="44" fill="#fff" stroke="var(--sig)" stroke-width="1.4"/>
+          <text x="10" y="100" class="m" font-size="9.4" font-weight="600">ErrorClassifier.call(e, policy)</text>
+          <text x="10" y="116" class="m" font-size="9" fill="#7b828b">&#8594; :retry | :discard | :dead</text>
+          <g transform="translate(222,75)"><path d="M0,13 L7.5,0 L15,13 Z" fill="var(--sig)"/><text x="4.3" y="11.2" class="m" font-size="7.5" font-weight="700" fill="#fff">B</text></g>
+
+          <line x1="251" y1="22" x2="278" y2="22" stroke="#16191d" stroke-width="0.9" marker-end="url(#ar)"/>
+          <rect x="280.5" y="0.5" width="235" height="44" fill="#fff" stroke="var(--sig)" stroke-width="1.4"/>
+          <text x="290" y="18" class="m" font-size="9.4" font-weight="600">RetryPolicy.for(job_class)</text>
+          <text x="290" y="34" class="m" font-size="9" fill="#7b828b">max, base, cap, retry_on, discard_on</text>
+          <g transform="translate(501,-10)"><path d="M0,13 L7.5,0 L15,13 Z" fill="var(--sig)"/><text x="4.3" y="11.2" class="m" font-size="7.5" font-weight="700" fill="#fff">B</text></g>
+
+          <line x1="380" y1="45" x2="380" y2="80" stroke="#16191d" stroke-width="0.9" marker-end="url(#ar)"/>
+          <text x="386" y="66" class="m" font-size="8.5" fill="#4a5058">:retry</text>
+          <rect x="280.5" y="82.5" width="235" height="44" fill="#fff" stroke="#16191d" stroke-width="0.9"/>
+          <text x="290" y="100" class="m" font-size="9.4" font-weight="600">policy.backoff(attempts)</text>
+          <text x="290" y="116" class="m" font-size="9" fill="#7b828b">rand(0..min(cap, base*2**(n-1)))</text>
+
+          <line x1="0" y1="150" x2="516" y2="150" stroke="var(--sig)" stroke-width="1.1" stroke-dasharray="6 4"/>
+          <text x="0" y="143" font-size="10.5" font-weight="700" fill="var(--sig)">&#9650; QUEUE-NEUTRAL &#183; jobs, policies, dead letter</text>
+          <text x="0" y="164" font-size="10.5" fill="#4a5058">&#9660; QUEUE-SPECIFIC &#183; one adapter per backend</text>
+
+          <line x1="470" y1="127" x2="470" y2="182" stroke="#16191d" stroke-width="0.9" marker-end="url(#ar)"/>
+          <rect x="120.5" y="184.5" width="395" height="44" fill="var(--tint)" stroke="#16191d" stroke-width="0.75"/>
+          <text x="130" y="202" class="m" font-size="9.8" font-weight="600">QueueAdapter (interface)</text>
+          <text x="130" y="218" class="m" font-size="9" fill="#4a5058">enqueue_at(job_class, args, at) &middot; no retries of its own</text>
+
+          <line x1="200" y1="229" x2="88" y2="254" stroke="#16191d" stroke-width="0.8" stroke-dasharray="3 2" marker-end="url(#ar)"/>
+          <line x1="290" y1="229" x2="262" y2="254" stroke="#16191d" stroke-width="0.8" stroke-dasharray="3 2" marker-end="url(#ar)"/>
+          <line x1="380" y1="229" x2="430" y2="254" stroke="#16191d" stroke-width="0.8" stroke-dasharray="3 2" marker-end="url(#ar)"/>
+          <text x="446" y="246" class="m" font-size="8.5" fill="#7b828b">implements</text>
+
+          <rect x="0.5" y="256.5" width="172" height="64" fill="#fff" stroke="#16191d" stroke-width="0.75"/>
+          <text x="8" y="273" class="m" font-size="9.4" font-weight="600">SidekiqAdapter</text>
+          <text x="8" y="289" class="m" font-size="8.6" fill="#4a5058">perform_at</text>
+          <text x="8" y="303" class="m" font-size="8.6" fill="#7b828b">sidekiq_options retry: 0</text>
+          <rect x="180.5" y="256.5" width="160" height="64" fill="#fff" stroke="#16191d" stroke-width="0.75"/>
+          <text x="188" y="273" class="m" font-size="9.4" font-weight="600">GoodJobAdapter</text>
+          <text x="188" y="289" class="m" font-size="8.6" fill="#4a5058">set(wait_until:)</text>
+          <text x="188" y="303" class="m" font-size="8.6" fill="#7b828b">built-in retry off</text>
+          <rect x="348.5" y="256.5" width="167" height="64" fill="#fff" stroke="#16191d" stroke-width="0.75"/>
+          <text x="356" y="273" class="m" font-size="9.4" font-weight="600">InlineAdapter</text>
+          <text x="356" y="289" class="m" font-size="8.6" fill="#4a5058">runs now, ignores at</text>
+          <text x="356" y="303" class="m" font-size="8.6" fill="#7b828b">test only</text>
+
+          <g transform="translate(0,340)">
+            <line x1="0" y1="0" x2="516" y2="0" stroke="#b9bec4" stroke-width="0.5"/>
+            <text x="0" y="14" class="m" font-size="8.5" fill="#7b828b">ONE OWNER OF RETRIES</text>
+            <text x="0" y="28" font-size="11.2">Adapters schedule; they never retry. Two retry loops would multiply the attempts.</text>
+            <rect x="0.5" y="40.5" width="515" height="90" fill="none" stroke="var(--sig)" stroke-width="0.75"/>
+            <text x="9" y="55" class="m" font-size="8.5" fill="var(--sig)">WHY SPLIT ERROR CLASSES &#183; R1 &#183; D3</text>
+            <text x="9" y="70" font-size="11.2">Rev A retried every exception: a permanent 422 &#8220;invalid address&#8221; got 25 tries,</text>
+            <text x="9" y="84" font-size="11.2">exactly like a provider 503. Now 4xx &#8594; discard, 5xx and timeouts &#8594; retry,</text>
+            <text x="9" y="98" font-size="11.2">and a retry that runs out of attempts &#8594; dead_jobs.</text>
+            <text x="9" y="118" font-size="11.2" font-weight="700" fill="var(--sig)">An outage now costs at most 8 tries per delivery, spread over 2 hours.</text>
+          </g>
+        </svg>
+      </section>
+
+      <!-- 03 TRACE PATHS -->
+      <section class="panel r">
+        <div class="ph"><span class="n">03</span><h2>Trace paths</h2><span class="s">run &middot; fail &middot; replay</span></div>
+        <div style="display:grid; gap:8px; align-content:start; min-height:0">
+          <div>
+            <div class="lbl" style="margin-bottom:4px">J &middot; job run</div>
+            <div class="trace">
+              <div class="step"><span class="i">J1</span><span class="t"><b>DeliverNotificationJob#perform</b>(delivery_id)</span></div>
+              <div class="step sub"><span class="i">J2</span><span class="t">return <span class="k">if</span> delivery.sent?<br><small>duplicates and replays are no-ops</small></span></div>
+              <div class="step"><span class="i">J3</span><span class="t">Mailer.deliver | Webhook.post(delivery)</span></div>
+              <div class="step sub"><span class="i">J4</span><span class="t">update!(state: :sent, sent_at: now)</span></div>
+            </div>
+          </div>
+          <div>
+            <div class="lbl" style="margin-bottom:4px">F &middot; failure</div>
+            <div class="trace">
+              <div class="step"><span class="i">F1</span><span class="t">rescue =&gt; e; delivery.attempts += 1</span></div>
+              <div class="step"><span class="i">F2</span><span class="t"><b>ErrorClassifier.call</b>(e, policy) <span class="delta" data-rev="B"></span><br><small>unknown error classes count as :retry</small></span></div>
+              <div class="step sub"><span class="i">F3</span><span class="t">:retry &#8594; next_attempt_at = now + <b>backoff</b>(n)<br>&nbsp;&nbsp;QueueAdapter#enqueue_at</span></div>
+              <div class="step sub"><span class="i">F4</span><span class="t">:discard &#8594; state :failed, last_error_class</span></div>
+              <div class="step sub"><span class="i">F5</span><span class="t">:dead (n == max) &#8594; <b>DeadJob.create!</b>, state :dead</span></div>
+            </div>
+          </div>
+          <div>
+            <div class="lbl" style="margin-bottom:4px">K &middot; replay from admin</div>
+            <div class="trace">
+              <div class="step"><span class="i">K1</span><span class="t">POST /admin/dead_jobs/:id/<b>replay</b></span></div>
+              <div class="step sub"><span class="i">K2</span><span class="t">attempts = 0, state :pending, enqueue now<br><small>replayed_at stamped; the row stays for audit</small></span></div>
+            </div>
+          </div>
+          <div class="why"><span class="lbl">WHY ATTEMPTS LIVE ON THE ROW &middot; R3</span>
+            <p>Rev A counted attempts in the job args, so a manual re-enqueue restarted at zero and a worker crash lost the count. The row is the one place every path reads.</p></div>
+        </div>
+      </section>
+
+      <!-- 04 CONTRACT -->
+      <section class="panel b">
+        <div class="ph"><span class="n">04</span><h2>Policy contract</h2><span class="delta" data-rev="B"></span><span class="s">class-level DSL</span></div>
+        <div style="display:grid; gap:7px; align-content:start">
+          <div class="box code"><span class="k">class</span> <b class="b">DeliverNotificationJob</b> &lt; ApplicationJob
+  <b class="b">retry_policy</b> max_attempts: 8,
+    base: 1.minute, cap: 1.hour,
+    retry_on:   [Net::ReadTimeout,
+                 Provider::Unavailable],  <span class="c"># 5xx</span>
+    discard_on: [Provider::InvalidAddress] <span class="c"># 4xx</span>
+<span class="k">end</span>
+
+<span class="c"># jobs without a policy: RetryPolicy::DEFAULT</span>
+<span class="c"># max 5 &middot; base 30 s &middot; cap 10 min &middot; retry all</span></div>
+          <ul class="inv">
+            <li><span><b>Removed vs Rev A:</b> the global <code>RETRIES = 25</code> and <code>retry_on StandardError</code>.</span></li>
+            <li><span><b>Why per class &middot; R4:</b> a digest email can wait an hour; a webhook consumer gives up on its side after 10 minutes. One global schedule fit neither.</span></li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- 05 BACKOFF MECHANISM -->
+      <section class="panel b">
+        <div class="ph"><span class="n">05</span><h2>Backoff &middot; why jitter</h2><span class="delta" data-rev="B"></span><span class="s">RetryPolicy#backoff</span></div>
+        <div style="display:grid; grid-template-columns: 1fr 160px; gap: 10px; align-content:start">
+          <div style="display:grid; gap:7px; align-content:start; min-width:0">
+            <div class="box code"><span class="k">def</span> <b class="b">backoff</b>(n)            <span class="c"># n = attempts so far</span>
+  ceiling = [cap, base * 2**(n - 1)].min
+  rand(0..ceiling)             <span class="c"># full jitter</span>
+<span class="k">end</span>
+
+<span class="c"># n:   1   2   3    4    5    6    7</span>
+<span class="c"># max: 1m  2m  4m   8m   16m  32m  1h</span>
+<span class="c"># worst case before :dead = 2 h 03 min</span></div>
+            <ul class="inv">
+              <li><span><b>Why full jitter &middot; R1:</b> Rev A&rsquo;s fixed <code>n**4 + 15</code> s schedule sent every failed delivery back at the same instants, so the provider saw a wall of traffic just as it recovered.</span></li>
+            </ul>
+          </div>
+          <svg viewBox="0 0 160 230" role="img" aria-label="Retries per minute after a provider outage. Rev A, dashed, comes back as tall synchronized spikes. Rev B, red, spreads the same retries into a low, even band.">
+            <text x="0" y="9" class="m" font-size="8.5" fill="#7b828b">RETRIES / MIN</text>
+            <line x1="6" y1="18" x2="6" y2="150" stroke="#16191d" stroke-width="0.8"/>
+            <line x1="6" y1="150" x2="156" y2="150" stroke="#16191d" stroke-width="0.8"/>
+            <rect x="6" y="18" width="30" height="132" fill="var(--tint)"/>
+            <text x="21" y="32" class="m" font-size="8" text-anchor="middle" fill="#4a5058">down</text>
+            <polyline points="40,150 42,40 44,150 70,150 72,70 74,150 112,150 114,96 116,150" fill="none" stroke="#7b828b" stroke-width="1" stroke-dasharray="3 2"/>
+            <path d="M36,150 L40,124 L60,126 L80,130 L100,134 L120,138 L150,142 L150,150 Z" fill="var(--sig-wash)" stroke="var(--sig)" stroke-width="1.2"/>
+            <text x="48" y="48" class="m" font-size="8" fill="#7b828b">A</text>
+            <text x="128" y="132" class="m" font-size="8" fill="var(--sig)">B</text>
+            <text x="0" y="172" font-size="10" fill="#4a5058">tint: provider down</text>
+            <text x="0" y="185" font-size="10" fill="#4a5058">dashed: Rev A spikes</text>
+            <text x="0" y="198" font-size="10" fill="var(--sig)">red: Rev B, same retries</text>
+            <text x="0" y="214" class="m" font-size="8.5" fill="#7b828b">shape only &middot; not to scale</text>
+          </svg>
+        </div>
+      </section>
+
+      <!-- 06 GUARANTEES + TITLE BLOCK -->
+      <section class="panel r b">
+        <div class="ph"><span class="n">06</span><h2>Guarantees &middot; open items</h2><span class="s">rollout: 3 PRs, reworked in place</span></div>
+        <div style="display:grid; grid-template-rows: auto auto 1fr auto; gap: 7px; min-height: 0">
+          <ul class="inv">
+            <li><span>Nothing is dropped silently: every delivery ends <code>sent</code>, <code>failed</code> (4xx) or <code>dead</code>.</span></li>
+            <li><span>A replay or duplicate never re-sends a delivery already marked <code>sent</code> (J2).</span></li>
+            <li><span><b>Accepted &middot; R5:</b> a crash between J3 and J4 can send twice. <b>Why accepted:</b> the provider has no idempotency key; a duplicate email beats a lost one.</span></li>
+            <li><span><b>O1</b> alert on dead_jobs growth? Proposed: page above 50 in 10 min.</span></li>
+          </ul>
+          <div class="stack" style="grid-template-columns: repeat(3, minmax(0, 1fr))">
+            <div class="sig"><span class="k">#41 &middot; S</span><span class="v">columns + dead_jobs</span><span class="s">reworked &#9651;B</span></div>
+            <div class="sig"><span class="k">#42 &middot; M</span><span class="v">policy DSL + classifier</span><span class="s">reworked &#9651;B</span></div>
+            <div><span class="k">#43 &middot; S</span><span class="v">admin replay</span><span class="s">new page only</span></div>
+          </div>
+          <div></div>
+          <div class="tb">
+            <div class="w3"><span class="k">TITLE</span><span class="v big">Notification Retries &middot; System Plan</span></div>
+            <div><span class="k">PROJECT</span><span class="v">Inkwell &middot; notifications</span></div>
+            <div><span class="k">DWG</span><span class="v">PLAN-v2.md</span></div>
+            <div><span class="k">REV</span><span class="v sig">B &middot; IN REVIEW</span></div>
+            <div><span class="k">STACK</span><span class="v">#41 #42 #43</span></div>
+            <div><span class="k">DATE</span><span class="v">2026-09-17</span></div>
+            <div><span class="k">SHEET</span><span class="v">1 OF 1 &middot; NTS</span></div>
+            <div class="w3"><span class="k">SOURCE</span><span class="v">illustrative PLAN-v2 + review of v1 (fictional) &middot; no measured numbers</span></div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+  // Self-check, read by scripts/render.rb. Runs only with ?lint in the URL; writes JSON into #one-pager-lint.
+  (function () {
+    if (!/[?&]lint\b/.test(location.search)) return;
+    function snippet(el) { return (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 70); }
+    function run() {
+      var issues = [];
+      var canvas = document.getElementById('canvas');
+      var meta = document.querySelector('meta[name="one-pager:size"]');
+      if (meta) {
+        var size = meta.content.split('x').map(Number);
+        if (canvas.offsetWidth !== size[0] || canvas.offsetHeight !== size[1]) issues.push({ kind: 'canvas-size', detail: 'meta says ' + meta.content + ', .canvas is ' + canvas.offsetWidth + 'x' + canvas.offsetHeight });
+      }
+      var head = document.querySelector('.head');
+      if (head) {
+        var headBottom = head.getBoundingClientRect().bottom;
+        head.querySelectorAll('*').forEach(function (el) {
+          if (el.children.length === 0 && el.textContent.trim() && el.getBoundingClientRect().bottom > headBottom + 1) issues.push({ kind: 'header-overflow', detail: snippet(el) });
+        });
+      }
+      document.querySelectorAll('.panel').forEach(function (panel, index) {
+        if (panel.scrollHeight > panel.clientHeight + 1 || panel.scrollWidth > panel.clientWidth + 1) {
+          issues.push({ kind: 'panel-overflow', panel: index + 1, detail: (panel.querySelector('h2') || panel).textContent.trim() + ': content ' + panel.scrollWidth + 'x' + panel.scrollHeight + ' > box ' + panel.clientWidth + 'x' + panel.clientHeight });
+        }
+      });
+      document.querySelectorAll('.canvas *').forEach(function (el) {
+        if (el.closest('svg') || el.closest('.ticks')) return;
+        var style = getComputedStyle(el);
+        var clips = style.overflow === 'hidden' || style.overflowX === 'hidden' || style.textOverflow === 'ellipsis';
+        var clippedY = style.overflow === 'hidden' || style.overflowY === 'hidden';
+        if (clips && el.scrollWidth > el.clientWidth + 1 && !el.classList.contains('canvas')) issues.push({ kind: 'clipped-text', detail: snippet(el) });
+        else if (clippedY && el.scrollHeight > el.clientHeight + 1 && !el.classList.contains('canvas') && !el.classList.contains('panel')) issues.push({ kind: 'clipped-text', detail: 'bottom cut off: ' + snippet(el) });
+        if (el.children.length === 0 && el.textContent.trim() && parseFloat(style.fontSize) < 7.5) issues.push({ kind: 'tiny-text', detail: style.fontSize + ' ' + snippet(el) });
+      });
+      document.querySelectorAll('.canvas svg').forEach(function (svg, svgIndex) {
+        var vb = svg.viewBox && svg.viewBox.baseVal;
+        var boxes = [];
+        svg.querySelectorAll('text').forEach(function (text) {
+          if (text.closest('marker, defs')) return;
+          var b; try { b = text.getBBox(); } catch (e) { return; }
+          if (!b.width) return;
+          var ctm = text.getCTM(), root = svg.getCTM();
+          var dx = ctm && root ? (ctm.e - root.e) / root.a : 0, dy = ctm && root ? (ctm.f - root.f) / root.d : 0;
+          var box = { x: b.x + dx, y: b.y + dy, w: b.width, h: b.height, label: snippet(text) };
+          boxes.push(box);
+          if (vb && vb.width && (box.x < vb.x - 1 || box.y < vb.y - 14 || box.x + box.w > vb.x + vb.width + 1 || box.y + box.h > vb.y + vb.height + 1)) {
+            issues.push({ kind: 'svg-text-outside-viewbox', svg: svgIndex + 1, detail: box.label });
+          }
+        });
+// A label that starts inside a box must also end inside it, 5 units clear of the right edge.
+var rects = [];
+svg.querySelectorAll('rect').forEach(function (rect) {
+  if (rect.closest('marker, defs')) return;
+  var rb; try { rb = rect.getBBox(); } catch (e) { return; }
+  var rctm = rect.getCTM(), rroot = svg.getCTM();
+  var rdx = rctm && rroot ? (rctm.e - rroot.e) / rroot.a : 0, rdy = rctm && rroot ? (rctm.f - rroot.f) / rroot.d : 0;
+  if (rb.width > 4 && rb.height > 4) rects.push({ x: rb.x + rdx, y: rb.y + rdy, w: rb.width, h: rb.height });
+});
+boxes.forEach(function (t) {
+  var sx = t.x + 1, sy = t.y + t.h / 2, host = null;
+  rects.forEach(function (r) {
+    if (sx >= r.x && sx <= r.x + r.w && sy >= r.y && sy <= r.y + r.h && (!host || r.w * r.h <= host.w * host.h)) host = r;  // ties: the last-painted (visible) box wins
+  });
+  if (host && (t.x + t.w > host.x + host.w - 5 || t.y + t.h > host.y + host.h + 1)) issues.push({ kind: 'svg-text-exceeds-box', svg: svgIndex + 1, detail: t.label });
+});
+// A connector line must not cross a label (the label box shrunk 1.5 units, so lines that
+// merely graze an edge or run beside a label don't count).
+svg.querySelectorAll('line').forEach(function (line) {
+  if (line.closest('marker, defs')) return;
+  var lctm = line.getCTM(), lroot = svg.getCTM();
+  var ldx = lctm && lroot ? (lctm.e - lroot.e) / lroot.a : 0, ldy = lctm && lroot ? (lctm.f - lroot.f) / lroot.d : 0;
+  var x1 = line.x1.baseVal.value + ldx, y1 = line.y1.baseVal.value + ldy, x2 = line.x2.baseVal.value + ldx, y2 = line.y2.baseVal.value + ldy;
+  boxes.forEach(function (t) {
+    var bx1 = t.x + 1.5, by1 = t.y + 1.5, bx2 = t.x + t.w - 1.5, by2 = t.y + t.h - 1.5;
+    if (bx2 <= bx1 || by2 <= by1) return;
+    // Liang-Barsky clip of the segment against the label box.
+    var dx = x2 - x1, dy = y2 - y1, p = [-dx, dx, -dy, dy], q = [x1 - bx1, bx2 - x1, y1 - by1, by2 - y1], u1 = 0, u2 = 1, hit = true;
+    for (var k = 0; k < 4; k++) {
+      if (p[k] === 0) { if (q[k] < 0) { hit = false; break; } }
+      else { var r = q[k] / p[k]; if (p[k] < 0) { if (r > u1) u1 = r; } else { if (r < u2) u2 = r; } if (u1 > u2) { hit = false; break; } }
+    }
+    if (hit) issues.push({ kind: 'svg-line-through-text', svg: svgIndex + 1, detail: t.label });
+  });
+});
+        for (var i = 0; i < boxes.length; i++) {
+          for (var j = i + 1; j < boxes.length; j++) {
+            var a = boxes[i], c = boxes[j];
+            var ox = Math.min(a.x + a.w, c.x + c.w) - Math.max(a.x, c.x);
+            var oy = Math.min(a.y + a.h, c.y + c.h) - Math.max(a.y, c.y);
+            if (ox > 1.5 && oy > 2.5) issues.push({ kind: 'svg-text-overlap', svg: svgIndex + 1, detail: '"' + a.label + '" x "' + c.label + '"' });
+          }
+        }
+      });
+      // Advisory: every panel should say WHY (a "WHY ..." note, a "Why ...:" lead, or a WHY box).
+      document.querySelectorAll(".panel").forEach(function (panel, index) {
+        if (!/\bwhy\b/i.test(panel.innerText || panel.textContent)) issues.push({ kind: "no-why", advisory: true, panel: index + 1, detail: (panel.querySelector("h2") || panel).textContent.trim() });
+      });
+      var families = {};
+      document.fonts.forEach(function (face) { if (face.status === 'loaded') families[face.family.replace(/"/g, '')] = true; });
+      ['IBM Plex Mono', 'IBM Plex Sans Condensed'].forEach(function (family) { if (!families[family]) issues.push({ kind: 'font-fallback', detail: family + ' did not load' }); });
+      var out = document.createElement('pre');
+      out.id = 'one-pager-lint';
+      out.textContent = JSON.stringify({ issues: issues });
+      document.body.appendChild(out);
+    }
+    (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(function () { setTimeout(run, 50); });
+  })();
+</script>
+</body>
+</html>

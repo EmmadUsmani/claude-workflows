@@ -1,0 +1,492 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- The canvas size scripts/render.rb renders at. Keep it equal to .canvas width/height below. -->
+<meta name="one-pager:size" content="1680x1050">
+<title>Render Cache Key Collision RCA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one fixed drawing sheet. Single frame, header + revision/status block,
+   a 3x2 grid of numbered panels, title block bottom-right. Ink on paper; ONE signal colour
+   (revision mode: what changed in this revision; new mode: what is new in the system). */
+:root {
+  --paper: #f5f6f3;
+  --sheet: #fbfbf9;
+  --ink: #16191d;
+  --ink-2: #4a5058;
+  --ink-3: #7b828b;
+  --rule: #b9bec4;
+  --hair: #dde0e3;
+  --sig: #d1431c;
+  --sig-wash: #fbe9e3;
+  --tint: #eef0ec;
+  --cond: "IBM Plex Sans Condensed", "Arial Narrow", "Helvetica Neue", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: light;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--paper); color: var(--ink); }
+.canvas { position: relative; width: 1680px; height: 1050px; overflow: hidden; font-family: var(--cond); font-size: 12.5px; line-height: 1.35; color: var(--ink); }
+.sheet { position: absolute; inset: 12px; background: var(--sheet); border: 1.5px solid var(--ink); }
+.inner { position: absolute; inset: 0; display: grid; grid-template-rows: 82px minmax(0, 1fr); }
+
+/* header */
+.head { display: grid; grid-template-columns: 1fr 520px; border-bottom: 0.75px solid var(--ink); min-width: 0; }
+.title { padding: 11px 16px 0; display: grid; align-content: start; gap: 3px; min-width: 0; }
+.title .kicker { font-family: var(--mono); font-size: 10px; letter-spacing: .14em; color: var(--ink-3); text-transform: uppercase; }
+.title h1 { font-size: 26px; font-weight: 700; letter-spacing: .01em; line-height: 1.05; text-transform: uppercase; }
+.title h1 em { font-style: normal; color: var(--sig); }
+.title .dek { font-size: 13px; color: var(--ink-2); }
+/* revision mode: REV table. new mode: STATUS fields. Both are 4 equal rows under a 16px head row. */
+.rev { border-left: 0.75px solid var(--ink); font-family: var(--mono); font-size: 9.5px; display: grid; grid-template-rows: 16px 1fr 1fr 1fr; min-width: 0; }
+.rev div { display: grid; grid-template-columns: 34px minmax(0, 1fr) 74px; border-bottom: 0.5px solid var(--rule); align-items: center; min-width: 0; }
+.rev div:last-child { border-bottom: 0; }
+.rev div span { padding: 0 7px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rev div span + span { border-left: 0.5px solid var(--rule); height: 100%; display: flex; align-items: center; }
+.rev .rh { color: var(--ink-3); letter-spacing: .08em; }
+.rev .cur { color: var(--sig); font-weight: 600; }
+.status { border-left: 0.75px solid var(--ink); font-family: var(--mono); font-size: 9.5px; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; min-width: 0; }
+.status > div { border-bottom: 0.5px solid var(--rule); border-right: 0.5px solid var(--rule); padding: 5px 8px; display: grid; align-content: center; gap: 2px; min-width: 0; }
+.status > div:nth-child(2n) { border-right: 0; }
+.status > div:nth-last-child(-n+2) { border-bottom: 0; }
+.status .k { color: var(--ink-3); letter-spacing: .1em; font-size: 7.5px; }
+.status .v { font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.status .v.sig { color: var(--sig); font-weight: 600; }
+
+/* body grid: default 3 columns x 2 rows */
+.body { display: grid; grid-template-columns: 560fr 540fr 520fr; grid-template-rows: 538px minmax(0, 1fr); min-height: 0; }
+.panel { border-right: 0.75px solid var(--ink); border-bottom: 0.75px solid var(--ink); padding: 9px 12px 10px; position: relative; min-width: 0; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 6px; }
+.panel.r { border-right: 0; }
+.panel.b { border-bottom: 0; }
+.ph { display: flex; align-items: baseline; gap: 8px; border-bottom: 0.5px solid var(--rule); padding-bottom: 4px; min-width: 0; }
+.ph .n { font-family: var(--mono); font-size: 10px; font-weight: 600; border: 0.75px solid var(--ink); padding: 0 4px; line-height: 14px; }
+.ph h2 { font-size: 13px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; white-space: nowrap; }
+.ph .s { margin-left: auto; font-family: var(--mono); font-size: 9.5px; color: var(--ink-3); white-space: nowrap; }
+/* revision delta marker for HTML headings: <span class="delta" data-rev="B"></span> */
+.delta { display: inline-block; width: 15px; height: 13px; position: relative; margin: 0 2px; flex: none; align-self: center; }
+.delta::before { content: ""; position: absolute; left: 0; top: 0; border-left: 7.5px solid transparent; border-right: 7.5px solid transparent; border-bottom: 13px solid var(--sig); }
+.delta::after { content: attr(data-rev); position: absolute; left: 4.4px; top: 2.6px; font-family: var(--mono); font-size: 7.5px; font-weight: 700; color: #fff; }
+
+svg { display: block; width: 100%; height: 100%; overflow: visible; }
+svg text { font-family: var(--cond); }
+/* NEVER `svg text { fill: ... }`: CSS beats the fill attribute and silently recolours every label. */
+svg text:not([fill]) { fill: var(--ink); }
+svg .m, svg .m text { font-family: var(--mono); }
+.code { font-family: var(--mono); font-size: 10.6px; line-height: 1.5; white-space: pre; color: var(--ink); overflow: hidden; }
+.code .c { color: var(--ink-3); }
+.code .k { color: var(--sig); }
+.code .b { font-weight: 600; }
+.box { border: 0.75px solid var(--ink); background: #fff; padding: 6px 8px; min-width: 0; }
+.lbl { font-family: var(--mono); font-size: 9px; letter-spacing: .1em; color: var(--ink-3); text-transform: uppercase; }
+
+/* why notes: every panel says why (panel-foot note, or .key for the one decision the sheet turns on) */
+.why { display: grid; gap: 2px; border-top: 0.5px solid var(--rule); padding-top: 5px; min-width: 0; }
+.why p { font-size: 11.5px; line-height: 1.32; color: var(--ink-2); }
+.why.key { border: 0.75px solid var(--sig); padding: 6px 9px; }
+.why.key .lbl { color: var(--sig); }
+.why.key p { color: var(--ink); }
+
+/* traces */
+.trace { display: grid; gap: 2px; }
+.step { display: grid; grid-template-columns: 22px minmax(0, 1fr); column-gap: 6px; align-items: start; }
+.step .i { font-family: var(--mono); font-size: 9px; font-weight: 600; color: var(--ink-2); border: 0.6px solid var(--ink-2); border-radius: 50%; width: 17px; height: 17px; display: grid; place-items: center; margin-top: 1px; }
+.step .t { font-family: var(--mono); font-size: 10.6px; line-height: 1.45; }
+.step .t small { font-family: var(--cond); font-size: 11.5px; color: var(--ink-2); }
+.step.sub .i { border-style: dashed; }
+
+/* lists */
+ul.inv { list-style: none; display: grid; gap: 4px; align-content: start; }
+ul.inv li { display: grid; grid-template-columns: 12px minmax(0, 1fr); font-size: 12px; line-height: 1.32; }
+ul.inv li::before { content: "\25B8"; font-size: 9px; color: var(--ink-2); padding-top: 2px; }
+ul.inv code { font-family: var(--mono); font-size: 10.5px; white-space: nowrap; }
+
+/* title block */
+.tb { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5px; background: var(--rule); border: 0.75px solid var(--ink); font-family: var(--mono); font-size: 9px; }
+.tb > div { background: var(--sheet); padding: 3px 6px 4px; display: grid; gap: 1px; min-width: 0; }
+.tb > div.w2 { grid-column: span 2; }
+.tb > div.w3 { grid-column: span 3; }
+.tb .k { color: var(--ink-3); letter-spacing: .1em; font-size: 7.5px; }
+.tb .v { color: var(--ink); font-size: 10px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tb .v.big { font-family: var(--cond); font-size: 15px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
+.tb .v.sig { color: var(--sig); }
+
+/* data table (blast radius, decisions, request/response): <table class="t"> */
+table.t { width: 100%; border-collapse: collapse; }
+table.t th { font-family: var(--mono); font-size: 8.5px; font-weight: 500; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); text-align: left; background: var(--tint); padding: 3px 6px; border-top: 0.75px solid var(--ink); border-bottom: 0.5px solid var(--rule); white-space: nowrap; }
+table.t td { font-size: 11.5px; line-height: 1.3; padding: 4px 6px; border-bottom: 0.5px solid var(--hair); vertical-align: top; }
+table.t th.n, table.t td.n { text-align: right; font-family: var(--mono); font-size: 10.4px; white-space: nowrap; }
+table.t tr.tot td { font-weight: 600; }
+table.t code { font-family: var(--mono); font-size: 10px; }
+table.t .g { color: var(--ink-3); }
+table.t .delta { vertical-align: -1px; margin: 0 0 0 4px; }
+
+/* stack / rollout strip: <div class="stack" style="grid-template-columns: repeat(N, minmax(0, 1fr))"> */
+.stack { display: grid; border: 0.75px solid var(--ink); }
+.stack > div { border-right: 0.5px solid var(--rule); padding: 3px 6px 4px; display: grid; gap: 1px; align-content: start; min-width: 0; }
+.stack > div:last-child { border-right: 0; }
+.stack .k { font-family: var(--mono); font-size: 8.5px; letter-spacing: .08em; color: var(--ink-3); }
+.stack .v { font-size: 11px; font-weight: 600; line-height: 1.15; }
+.stack .s { font-family: var(--mono); font-size: 8.5px; color: var(--ink-2); }
+.stack .sig { background: var(--sig-wash); }
+.stack .sig .s { color: var(--sig); font-weight: 600; }
+
+/* wireframe callouts: <ol class="co"><li><b class="n">1</b><span>...</span></li></ol> */
+ol.co { list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 3px 14px; }
+ol.co li { display: grid; grid-template-columns: 18px minmax(0, 1fr); font-size: 11.5px; line-height: 1.3; color: var(--ink-2); }
+ol.co li b.n { font-family: var(--mono); font-size: 8.5px; font-weight: 600; color: var(--ink); border: 0.6px solid var(--ink); border-radius: 50%; width: 13px; height: 13px; display: grid; place-items: center; margin-top: 1px; }
+ol.co code { font-family: var(--mono); font-size: 10px; color: var(--ink); }
+/* code inside prose: why notes, trace steps, tables */
+.why code, .t td code { font-family: var(--mono); font-size: 10px; }
+.step .t small code { font-family: var(--mono); font-size: 10px; }
+</style>
+</head>
+<body>
+<div class="canvas" id="canvas">
+<div class="sheet">
+  <div class="inner">
+
+    <!-- HEADER -->
+    <div class="head">
+      <div class="title">
+        <div class="kicker">Inkdown (illustrative) &middot; Render cache &middot; RCA / bug fix &middot; one sheet</div>
+        <h1>Render Cache Key Collision &mdash; <em>RCA</em></h1>
+        <div class="dek">Verdict: the cache key is the source text only, so HTML rendered with <b>safe: false</b> is served to a <b>safe: true</b> caller that renders the same text.</div>
+      </div>
+      <!-- NEW MODE: .status block. Revision mode would use the .rev table instead (see REFERENCE.md). -->
+      <div class="status">
+        <div><span class="k">STATUS</span><span class="v sig">FIX ON BRANCH &middot; NOT RELEASED</span></div>
+        <div><span class="k">DELIVERY</span><span class="v">PR #142 &#8594; release 2.4.4</span></div>
+        <div><span class="k">CODE READ AT</span><span class="v">main @ 9b1d07a</span></div>
+        <div><span class="k">NUMBERS</span><span class="v">repro only &middot; reach not measured</span></div>
+      </div>
+    </div>
+
+    <!-- BODY -->
+    <div class="body">
+
+      <!-- 01 SYMPTOM -->
+      <section class="panel">
+        <div class="ph"><span class="n">01</span><h2>The symptom</h2><span class="s">one text, two callers, one process</span></div>
+        <svg viewBox="0 0 536 474" role="img" aria-label="The same source text is rendered twice in one process. First an admin preview with safe: false correctly keeps the raw img tag. Then a comment with safe: true should escape it, but is served the cached raw HTML, so the onerror handler runs.">
+          <defs>
+            <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#16191d"/></marker>
+          </defs>
+
+          <!-- source -->
+          <rect x="118.5" y="0.5" width="300" height="44" fill="var(--tint)" stroke="#16191d" stroke-width="0.75"/>
+          <text x="128" y="17" class="m" font-size="8.5" fill="#7b828b">SAME SOURCE TEXT</text>
+          <text x="128" y="34" class="m" font-size="9.8" font-weight="600">src = "hi &lt;img src=x onerror=track()&gt;"</text>
+
+          <line x1="200" y1="45" x2="132" y2="84" stroke="#16191d" stroke-width="0.9" marker-end="url(#ar)"/>
+          <line x1="336" y1="45" x2="404" y2="84" stroke="#16191d" stroke-width="0.9" marker-end="url(#ar)"/>
+          <text x="148" y="70" class="m" font-size="8.5" fill="#4a5058" text-anchor="end">1st</text>
+          <text x="388" y="70" class="m" font-size="8.5" fill="#4a5058">2nd</text>
+
+          <!-- caller 1 -->
+          <rect x="0.5" y="86.5" width="258" height="150" fill="#fff" stroke="#16191d" stroke-width="0.75"/>
+          <text x="8" y="103" class="m" font-size="9.6" font-weight="600">admin preview &#183; safe: false</text>
+          <text x="8" y="118" font-size="10.5" fill="#4a5058">trusted author; raw HTML allowed</text>
+          <line x1="8" y1="128" x2="251" y2="128" stroke="#dde0e3"/>
+          <text x="8" y="144" class="m" font-size="8.5" fill="#7b828b">RENDERS</text>
+          <text x="8" y="160" class="m" font-size="9">&lt;p&gt;hi &lt;img src=x onerror=track()&gt;&lt;/p&gt;</text>
+          <text x="8" y="182" class="m" font-size="8.5" fill="#7b828b">CACHE</text>
+          <text x="8" y="198" class="m" font-size="9">miss &#8594; write key SHA256(src)</text>
+          <text x="8" y="222" font-size="10.5" fill="#4a5058">correct for this caller</text>
+
+          <!-- caller 2 -->
+          <rect x="277.5" y="86.5" width="258" height="150" fill="#fff" stroke="var(--sig)" stroke-width="1.6"/>
+          <text x="285" y="103" class="m" font-size="9.6" font-weight="600">public comment &#183; safe: true</text>
+          <text x="285" y="118" font-size="10.5" fill="#4a5058">untrusted author; HTML must be escaped</text>
+          <line x1="285" y1="128" x2="528" y2="128" stroke="#dde0e3"/>
+          <text x="285" y="144" class="m" font-size="8.5" fill="#7b828b">SHOULD RENDER</text>
+          <text x="285" y="160" class="m" font-size="9">&lt;p&gt;hi &amp;lt;img src=x &#8230;&amp;gt;&lt;/p&gt;</text>
+          <text x="285" y="182" class="m" font-size="8.5" fill="var(--sig)">IS SERVED (cache HIT)</text>
+          <text x="285" y="198" class="m" font-size="9" fill="var(--sig)">&lt;p&gt;hi &lt;img src=x onerror=track()&gt;&lt;/p&gt;</text>
+          <text x="285" y="222" font-size="10.5" font-weight="700" fill="var(--sig)">onerror runs in every reader&#8217;s browser</text>
+
+          <!-- repro -->
+          <g transform="translate(0,258)">
+            <text x="0" y="10" class="m" font-size="8.5" fill="#7b828b">REPRODUCTION &#183; bin/repro_cache_collision.rb &#183; 3 lines</text>
+            <rect x="0.5" y="18.5" width="535" height="66" fill="#fff" stroke="#16191d" stroke-width="0.75"/>
+            <text x="10" y="36" class="m" font-size="9.6">Inkdown.render(src, safe: false)   <tspan fill="#7b828b"># fills the cache</tspan></text>
+            <text x="10" y="53" class="m" font-size="9.6">Inkdown.render(src, safe: true)    <tspan fill="#7b828b"># cache HIT</tspan></text>
+            <text x="10" y="70" class="m" font-size="9.6" fill="var(--sig)">#=&gt; "&lt;p&gt;hi &lt;img src=x onerror=track()&gt;&lt;/p&gt;"</text>
+            <text x="0" y="104" font-size="11.2">Reverse the order and both callers get the escaped HTML: the first render wins the key.</text>
+            <text x="0" y="118" font-size="11.2" fill="#4a5058">Restart the process or clear the cache and the symptom disappears until the next pair.</text>
+          </g>
+
+          <!-- why -->
+          <g transform="translate(0,400)">
+            <line x1="0" y1="0" x2="536" y2="0" stroke="#b9bec4" stroke-width="0.5"/>
+            <text x="0" y="15" class="m" font-size="8.5" fill="#7b828b">WHY IT LOOKED INTERMITTENT</text>
+            <text x="0" y="30" font-size="11.2">It needs the identical text rendered in both modes, in one process, unsafe first, inside</text>
+            <text x="0" y="44" font-size="11.2">the LRU&#8217;s lifetime. Most reports said &#8220;can&#8217;t reproduce&#8221; because a test run starts</text>
+            <text x="0" y="58" font-size="11.2">with an empty cache.</text>
+          </g>
+        </svg>
+      </section>
+
+      <!-- 02 MECHANISM -->
+      <section class="panel">
+        <div class="ph"><span class="n">02</span><h2>Mechanism</h2><span class="s">lib/inkdown/render_cache.rb</span></div>
+        <svg viewBox="0 0 516 477" role="img" aria-label="Inkdown.render builds Options and calls RenderCache#fetch with cache_key(src), which hashes the source only. On a miss the Renderer runs with the caller's options and the result is stored; on a hit the stored HTML is returned whatever options the caller passed. The LruStore is shared by every caller in the process.">
+          <rect x="0.5" y="0.5" width="250" height="44" fill="#fff" stroke="#16191d" stroke-width="0.9"/>
+          <text x="10" y="18" class="m" font-size="9.8" font-weight="600">Inkdown.render(src, **opts)</text>
+          <text x="10" y="34" class="m" font-size="9" fill="#7b828b">options = Options.new(**opts)</text>
+          <line x1="251" y1="22" x2="278" y2="22" stroke="#16191d" stroke-width="0.9" marker-end="url(#ar)"/>
+          <rect x="280.5" y="0.5" width="235" height="44" fill="#fff" stroke="#16191d" stroke-width="0.9"/>
+          <text x="290" y="18" class="m" font-size="9.8" font-weight="600">RenderCache#fetch(key)</text>
+          <text x="290" y="34" class="m" font-size="9" fill="#7b828b">{ Renderer.new(options).call(src) }</text>
+
+          <line x1="398" y1="45" x2="398" y2="80" stroke="#16191d" stroke-width="0.9" marker-end="url(#ar)"/>
+          <text x="404" y="66" class="m" font-size="8.5" fill="#4a5058">key =</text>
+          <rect x="200.5" y="82.5" width="315" height="58" fill="var(--sig-wash)" stroke="var(--sig)" stroke-width="1.6"/>
+          <text x="210" y="100" class="m" font-size="9.8" font-weight="700" fill="var(--sig)">cache_key(src) = SHA256(src)</text>
+          <text x="210" y="116" class="m" font-size="9">options never reach the key</text>
+          <text x="210" y="131" class="m" font-size="8.6" fill="#7b828b">render_cache.rb:14 &#183; since 2.3.0</text>
+
+          <line x1="290" y1="141" x2="160" y2="186" stroke="#16191d" stroke-width="0.9" marker-end="url(#ar)"/>
+          <text x="214" y="160" class="m" font-size="8.5" fill="#4a5058" text-anchor="end">miss</text>
+          <line x1="430" y1="141" x2="430" y2="186" stroke="var(--sig)" stroke-width="1.2" marker-end="url(#ar)"/>
+          <text x="436" y="168" class="m" font-size="8.5" fill="var(--sig)">hit</text>
+
+          <rect x="0.5" y="188.5" width="250" height="58" fill="#fff" stroke="#16191d" stroke-width="0.75"/>
+          <text x="10" y="206" class="m" font-size="9.4" font-weight="600">Renderer.new(options).call(src)</text>
+          <text x="10" y="222" class="m" font-size="9" fill="#4a5058">safe: true escapes raw HTML</text>
+          <text x="10" y="237" class="m" font-size="9" fill="#7b828b">&#8594; store.write(key, html)</text>
+          <rect x="300.5" y="188.5" width="215" height="58" fill="#fff" stroke="var(--sig)" stroke-width="1.4"/>
+          <text x="310" y="206" class="m" font-size="9.4" font-weight="600">store.read(key)</text>
+          <text x="310" y="222" class="m" font-size="9" fill="var(--sig)">returns whatever was</text>
+          <text x="310" y="237" class="m" font-size="9" fill="var(--sig)">stored first, any options</text>
+
+          <line x1="125" y1="247" x2="125" y2="290" stroke="#16191d" stroke-width="0.8" stroke-dasharray="3 2" marker-end="url(#ar)"/>
+          <line x1="408" y1="247" x2="408" y2="290" stroke="#16191d" stroke-width="0.8" stroke-dasharray="3 2" marker-end="url(#ar)"/>
+          <rect x="0.5" y="292.5" width="515" height="44" fill="var(--tint)" stroke="#16191d" stroke-width="0.75" stroke-dasharray="3 2"/>
+          <text x="10" y="310" class="m" font-size="9.6" font-weight="600">Inkdown.cache = LruStore.new(10_000)</text>
+          <text x="10" y="326" class="m" font-size="9" fill="#4a5058">one store per process &#183; shared by every caller &#183; on by default</text>
+
+          <g transform="translate(0,356)">
+            <line x1="0" y1="0" x2="516" y2="0" stroke="#b9bec4" stroke-width="0.5"/>
+            <rect x="0.5" y="12.5" width="515" height="96" fill="none" stroke="var(--sig)" stroke-width="0.75"/>
+            <text x="9" y="27" class="m" font-size="8.5" fill="var(--sig)">WHY THE CACHE CANNOT TELL THEM APART</text>
+            <text x="9" y="42" font-size="11.2">The output is a function of (source, options); the key is a function of source alone.</text>
+            <text x="9" y="56" font-size="11.2">Two different outputs share one name, and the first one written answers for both.</text>
+            <text x="9" y="70" font-size="11.2" fill="#4a5058">A cache key must name every input that changes the value, including the library version.</text>
+            <text x="9" y="96" font-size="11.2" font-weight="700" fill="var(--sig)">Any option that changes output, not only safe:, is a second instance of this bug.</text>
+          </g>
+        </svg>
+      </section>
+
+      <!-- 03 WHY IT HAPPENED -->
+      <section class="panel r">
+        <div class="ph"><span class="n">03</span><h2>How it got in</h2><span class="s">history &middot; repro</span></div>
+        <div style="display:grid; gap:8px; align-content:start; min-height:0">
+          <div>
+            <div class="lbl" style="margin-bottom:4px">H &middot; history (git log, PR bodies)</div>
+            <div class="trace">
+              <div class="step"><span class="i">H1</span><span class="t">2.3.0 &middot; #118 adds <b>RenderCache</b>, key = SHA256(src)<br><small>options were global then (<code>Inkdown.configure</code>): <b>correct when written</b></small></span></div>
+              <div class="step"><span class="i">H2</span><span class="t">2.4.0 &middot; #131 adds per-call <b>render(src, safe:)</b><br><small style="color:var(--sig)">cache_key untouched; options now vary per call</small></span></div>
+              <div class="step sub"><span class="i">H3</span><span class="t">cache on by default since 2.3<br><small>every 2.4.x app that mixes modes is exposed</small></span></div>
+            </div>
+          </div>
+          <div>
+            <div class="lbl" style="margin-bottom:4px">R &middot; reproduction, one process</div>
+            <div class="trace">
+              <div class="step"><span class="i">R1</span><span class="t">render(src, safe: false) &#8594; miss, write</span></div>
+              <div class="step"><span class="i">R2</span><span class="t">render(src, safe: true) &#8594; <span style="color:var(--sig)">HIT &#8594; raw HTML</span></span></div>
+              <div class="step sub"><span class="i">R3</span><span class="t">Inkdown.cache.clear; repeat R2 &#8594; escaped<br><small>proves the cache, not the renderer, is at fault</small></span></div>
+            </div>
+          </div>
+          <div>
+            <div class="lbl" style="margin-bottom:4px">Ruled out</div>
+            <ul class="inv">
+              <li><span><b>The sanitizer:</b> with the cache off, <code>safe: true</code> escapes every case in the report.</span></li>
+              <li><span><b>Thread races:</b> the repro is single-threaded and deterministic.</span></li>
+            </ul>
+          </div>
+          <div class="why"><span class="lbl">WHY THE TESTS MISSED IT</span>
+            <p>Every spec clears the cache first (<code>before { Inkdown.cache.clear }</code>) and renders with one option set. No spec renders one text with two option sets, so no spec could see a second caller.</p></div>
+        </div>
+      </section>
+
+      <!-- 04 THE FIX -->
+      <section class="panel b">
+        <div class="ph"><span class="n">04</span><h2>The fix</h2><span class="s">PR #142 &middot; on branch, not released</span></div>
+        <div style="display:grid; gap:7px; align-content:start">
+          <div class="box code"><span class="c"># lib/inkdown/render_cache.rb (fix/cache-key-options)</span>
+<span class="k">def</span> <b class="b">cache_key</b>(src, options)
+  Digest::SHA256.hexdigest([
+    Inkdown::VERSION,
+    options.<b class="b">cache_fingerprint</b>,  <span class="c"># every attr, sorted</span>
+    src
+  ].join("\0"))
+<span class="k">end</span></div>
+          <ul class="inv">
+            <li><span><b>Why every option, not just <code>safe</code> &middot; D1:</b> <code>hard_wrap</code> and <code>autolink</code> change output too. Listing one option would leave the next one to repeat the bug.</span></li>
+            <li><span><b>Why the version:</b> an upgrade that changes rendering would otherwise keep serving the old HTML.</span></li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- 05 BLAST RADIUS -->
+      <section class="panel b">
+        <div class="ph"><span class="n">05</span><h2>Blast radius &middot; severity</h2><span class="s">from code + repro</span></div>
+        <div style="display:grid; gap:7px; align-content:start">
+          <table class="t">
+            <tr><th>Configuration</th><th>Affected</th><th>Source</th></tr>
+            <tr><td>2.4.0&ndash;2.4.3, cache on, both modes in one process</td><td style="color:var(--sig); font-weight:600">yes</td><td class="g">repro</td></tr>
+            <tr><td>Only <code>safe: true</code> anywhere in the app</td><td>no</td><td class="g">needs both modes</td></tr>
+            <tr><td>Cache disabled (<code>Inkdown.cache = nil</code>)</td><td>no</td><td class="g">code</td></tr>
+            <tr><td>2.3.x and earlier</td><td>no</td><td class="g">no per-call options</td></tr>
+            <tr><td>Installs of affected versions</td><td class="g">[PENDING]</td><td class="g">not measured</td></tr>
+          </table>
+          <div class="why key"><span class="lbl">SEVERITY: HIGH &middot; stored XSS</span>
+            <p>Untrusted text can run script in readers&rsquo; browsers. <b>Why not critical:</b> the attacker needs a trusted caller to render the identical text first, in the same process.</p></div>
+        </div>
+      </section>
+
+      <!-- 06 REMEDIATION + TITLE BLOCK -->
+      <section class="panel r b">
+        <div class="ph"><span class="n">06</span><h2>Remediation &middot; follow-ups</h2><span class="s">rollout strip</span></div>
+        <div style="display:grid; grid-template-rows: auto auto 1fr auto; gap: 7px; min-height: 0">
+          <ul class="inv">
+            <li><span><b>Users:</b> upgrade to 2.4.4. Until then, <code>Inkdown.cache = nil</code> or one cache per mode.</span></li>
+            <li><span><b>No flush needed:</b> new keys never match old entries, which age out of the LRU.</span></li>
+            <li><span><b>Follow-up:</b> a spec that flips each <code>Options</code> attribute and expects a new key. <b>Why:</b> it catches the next option nobody remembers.</span></li>
+          </ul>
+          <div class="stack" style="grid-template-columns: repeat(3, minmax(0, 1fr))">
+            <div><span class="k">1 &middot; MERGE</span><span class="v">PR #142</span><span class="s">open, in review</span></div>
+            <div><span class="k">2 &middot; RELEASE</span><span class="v">2.4.4 gem</span><span class="s">after merge</span></div>
+            <div><span class="k">3 &middot; DISCLOSE</span><span class="v">advisory + CHANGELOG</span><span class="s">with the release</span></div>
+          </div>
+          <div></div>
+          <div class="tb">
+            <div class="w3"><span class="k">TITLE</span><span class="v big">Render Cache Key Collision &middot; RCA</span></div>
+            <div><span class="k">PROJECT</span><span class="v">Inkdown &middot; render cache</span></div>
+            <div><span class="k">DWG</span><span class="v">cache-key-collision.html</span></div>
+            <div><span class="k">REV</span><span class="v sig">A &middot; FIX ON BRANCH</span></div>
+            <div><span class="k">STACK</span><span class="v">#142</span></div>
+            <div><span class="k">DATE</span><span class="v">2026-07-14</span></div>
+            <div><span class="k">SHEET</span><span class="v">1 OF 1 &middot; NTS</span></div>
+            <div class="w3"><span class="k">SOURCE</span><span class="v">illustrative RCA explainer &middot; repro script + code read &middot; reach not measured</span></div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+  // Self-check, read by scripts/render.rb. Runs only with ?lint in the URL; writes JSON into #one-pager-lint.
+  (function () {
+    if (!/[?&]lint\b/.test(location.search)) return;
+    function snippet(el) { return (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 70); }
+    function run() {
+      var issues = [];
+      var canvas = document.getElementById('canvas');
+      var meta = document.querySelector('meta[name="one-pager:size"]');
+      if (meta) {
+        var size = meta.content.split('x').map(Number);
+        if (canvas.offsetWidth !== size[0] || canvas.offsetHeight !== size[1]) issues.push({ kind: 'canvas-size', detail: 'meta says ' + meta.content + ', .canvas is ' + canvas.offsetWidth + 'x' + canvas.offsetHeight });
+      }
+      var head = document.querySelector('.head');
+      if (head) {
+        var headBottom = head.getBoundingClientRect().bottom;
+        head.querySelectorAll('*').forEach(function (el) {
+          if (el.children.length === 0 && el.textContent.trim() && el.getBoundingClientRect().bottom > headBottom + 1) issues.push({ kind: 'header-overflow', detail: snippet(el) });
+        });
+      }
+      document.querySelectorAll('.panel').forEach(function (panel, index) {
+        if (panel.scrollHeight > panel.clientHeight + 1 || panel.scrollWidth > panel.clientWidth + 1) {
+          issues.push({ kind: 'panel-overflow', panel: index + 1, detail: (panel.querySelector('h2') || panel).textContent.trim() + ': content ' + panel.scrollWidth + 'x' + panel.scrollHeight + ' > box ' + panel.clientWidth + 'x' + panel.clientHeight });
+        }
+      });
+      document.querySelectorAll('.canvas *').forEach(function (el) {
+        if (el.closest('svg') || el.closest('.ticks')) return;
+        var style = getComputedStyle(el);
+        var clips = style.overflow === 'hidden' || style.overflowX === 'hidden' || style.textOverflow === 'ellipsis';
+        var clippedY = style.overflow === 'hidden' || style.overflowY === 'hidden';
+        if (clips && el.scrollWidth > el.clientWidth + 1 && !el.classList.contains('canvas')) issues.push({ kind: 'clipped-text', detail: snippet(el) });
+        else if (clippedY && el.scrollHeight > el.clientHeight + 1 && !el.classList.contains('canvas') && !el.classList.contains('panel')) issues.push({ kind: 'clipped-text', detail: 'bottom cut off: ' + snippet(el) });
+        if (el.children.length === 0 && el.textContent.trim() && parseFloat(style.fontSize) < 7.5) issues.push({ kind: 'tiny-text', detail: style.fontSize + ' ' + snippet(el) });
+      });
+      document.querySelectorAll('.canvas svg').forEach(function (svg, svgIndex) {
+        var vb = svg.viewBox && svg.viewBox.baseVal;
+        var boxes = [];
+        svg.querySelectorAll('text').forEach(function (text) {
+          if (text.closest('marker, defs')) return;
+          var b; try { b = text.getBBox(); } catch (e) { return; }
+          if (!b.width) return;
+          var ctm = text.getCTM(), root = svg.getCTM();
+          var dx = ctm && root ? (ctm.e - root.e) / root.a : 0, dy = ctm && root ? (ctm.f - root.f) / root.d : 0;
+          var box = { x: b.x + dx, y: b.y + dy, w: b.width, h: b.height, label: snippet(text) };
+          boxes.push(box);
+          if (vb && vb.width && (box.x < vb.x - 1 || box.y < vb.y - 14 || box.x + box.w > vb.x + vb.width + 1 || box.y + box.h > vb.y + vb.height + 1)) {
+            issues.push({ kind: 'svg-text-outside-viewbox', svg: svgIndex + 1, detail: box.label });
+          }
+        });
+// A label that starts inside a box must also end inside it, 5 units clear of the right edge.
+var rects = [];
+svg.querySelectorAll('rect').forEach(function (rect) {
+  if (rect.closest('marker, defs')) return;
+  var rb; try { rb = rect.getBBox(); } catch (e) { return; }
+  var rctm = rect.getCTM(), rroot = svg.getCTM();
+  var rdx = rctm && rroot ? (rctm.e - rroot.e) / rroot.a : 0, rdy = rctm && rroot ? (rctm.f - rroot.f) / rroot.d : 0;
+  if (rb.width > 4 && rb.height > 4) rects.push({ x: rb.x + rdx, y: rb.y + rdy, w: rb.width, h: rb.height });
+});
+boxes.forEach(function (t) {
+  var sx = t.x + 1, sy = t.y + t.h / 2, host = null;
+  rects.forEach(function (r) {
+    if (sx >= r.x && sx <= r.x + r.w && sy >= r.y && sy <= r.y + r.h && (!host || r.w * r.h <= host.w * host.h)) host = r;  // ties: the last-painted (visible) box wins
+  });
+  if (host && (t.x + t.w > host.x + host.w - 5 || t.y + t.h > host.y + host.h + 1)) issues.push({ kind: 'svg-text-exceeds-box', svg: svgIndex + 1, detail: t.label });
+});
+// A connector line must not cross a label (the label box shrunk 1.5 units, so lines that
+// merely graze an edge or run beside a label don't count).
+svg.querySelectorAll('line').forEach(function (line) {
+  if (line.closest('marker, defs')) return;
+  var lctm = line.getCTM(), lroot = svg.getCTM();
+  var ldx = lctm && lroot ? (lctm.e - lroot.e) / lroot.a : 0, ldy = lctm && lroot ? (lctm.f - lroot.f) / lroot.d : 0;
+  var x1 = line.x1.baseVal.value + ldx, y1 = line.y1.baseVal.value + ldy, x2 = line.x2.baseVal.value + ldx, y2 = line.y2.baseVal.value + ldy;
+  boxes.forEach(function (t) {
+    var bx1 = t.x + 1.5, by1 = t.y + 1.5, bx2 = t.x + t.w - 1.5, by2 = t.y + t.h - 1.5;
+    if (bx2 <= bx1 || by2 <= by1) return;
+    // Liang-Barsky clip of the segment against the label box.
+    var dx = x2 - x1, dy = y2 - y1, p = [-dx, dx, -dy, dy], q = [x1 - bx1, bx2 - x1, y1 - by1, by2 - y1], u1 = 0, u2 = 1, hit = true;
+    for (var k = 0; k < 4; k++) {
+      if (p[k] === 0) { if (q[k] < 0) { hit = false; break; } }
+      else { var r = q[k] / p[k]; if (p[k] < 0) { if (r > u1) u1 = r; } else { if (r < u2) u2 = r; } if (u1 > u2) { hit = false; break; } }
+    }
+    if (hit) issues.push({ kind: 'svg-line-through-text', svg: svgIndex + 1, detail: t.label });
+  });
+});
+        for (var i = 0; i < boxes.length; i++) {
+          for (var j = i + 1; j < boxes.length; j++) {
+            var a = boxes[i], c = boxes[j];
+            var ox = Math.min(a.x + a.w, c.x + c.w) - Math.max(a.x, c.x);
+            var oy = Math.min(a.y + a.h, c.y + c.h) - Math.max(a.y, c.y);
+            if (ox > 1.5 && oy > 2.5) issues.push({ kind: 'svg-text-overlap', svg: svgIndex + 1, detail: '"' + a.label + '" x "' + c.label + '"' });
+          }
+        }
+      });
+      // Advisory: every panel should say WHY (a "WHY ..." note, a "Why ...:" lead, or a WHY box).
+      document.querySelectorAll(".panel").forEach(function (panel, index) {
+        if (!/\bwhy\b/i.test(panel.innerText || panel.textContent)) issues.push({ kind: "no-why", advisory: true, panel: index + 1, detail: (panel.querySelector("h2") || panel).textContent.trim() });
+      });
+      var families = {};
+      document.fonts.forEach(function (face) { if (face.status === 'loaded') families[face.family.replace(/"/g, '')] = true; });
+      ['IBM Plex Mono', 'IBM Plex Sans Condensed'].forEach(function (family) { if (!families[family]) issues.push({ kind: 'font-fallback', detail: family + ' did not load' }); });
+      var out = document.createElement('pre');
+      out.id = 'one-pager-lint';
+      out.textContent = JSON.stringify({ issues: issues });
+      document.body.appendChild(out);
+    }
+    (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(function () { setTimeout(run, 50); });
+  })();
+</script>
+</body>
+</html>

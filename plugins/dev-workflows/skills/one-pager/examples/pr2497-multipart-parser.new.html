@@ -1,0 +1,550 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- The canvas size scripts/render.rb renders at. Keep it equal to .canvas width/height below. -->
+<meta name="one-pager:size" content="1680x1050">
+<title>PR 2497 Multipart Parser Sheet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one fixed drawing sheet. Single frame, header + revision/status block,
+   a 3x2 grid of numbered panels, title block bottom-right. Ink on paper; ONE signal colour
+   (revision mode: what changed in this revision; new mode: what is new in the system). */
+:root {
+  --paper: #f5f6f3;
+  --sheet: #fbfbf9;
+  --ink: #16191d;
+  --ink-2: #4a5058;
+  --ink-3: #7b828b;
+  --rule: #b9bec4;
+  --hair: #dde0e3;
+  --sig: #d1431c;
+  --sig-wash: #fbe9e3;
+  --tint: #eef0ec;
+  --cond: "IBM Plex Sans Condensed", "Arial Narrow", "Helvetica Neue", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: light;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--paper); color: var(--ink); }
+.canvas { position: relative; width: 1680px; height: 1050px; overflow: hidden; font-family: var(--cond); font-size: 12.5px; line-height: 1.35; color: var(--ink); }
+.sheet { position: absolute; inset: 12px; background: var(--sheet); border: 1.5px solid var(--ink); }
+.inner { position: absolute; inset: 0; display: grid; grid-template-rows: 82px minmax(0, 1fr); }
+
+/* header */
+.head { display: grid; grid-template-columns: 1fr 520px; border-bottom: 0.75px solid var(--ink); min-width: 0; }
+.title { padding: 11px 16px 0; display: grid; align-content: start; gap: 3px; min-width: 0; }
+.title .kicker { font-family: var(--mono); font-size: 10px; letter-spacing: .14em; color: var(--ink-3); text-transform: uppercase; }
+.title h1 { font-size: 26px; font-weight: 700; letter-spacing: .01em; line-height: 1.05; text-transform: uppercase; }
+.title h1 em { font-style: normal; color: var(--sig); }
+.title .dek { font-size: 13px; color: var(--ink-2); }
+/* revision mode: REV table. new mode: STATUS fields. Both are 4 equal rows under a 16px head row. */
+.rev { border-left: 0.75px solid var(--ink); font-family: var(--mono); font-size: 9.5px; display: grid; grid-template-rows: 16px 1fr 1fr 1fr; min-width: 0; }
+.rev div { display: grid; grid-template-columns: 34px minmax(0, 1fr) 74px; border-bottom: 0.5px solid var(--rule); align-items: center; min-width: 0; }
+.rev div:last-child { border-bottom: 0; }
+.rev div span { padding: 0 7px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rev div span + span { border-left: 0.5px solid var(--rule); height: 100%; display: flex; align-items: center; }
+.rev .rh { color: var(--ink-3); letter-spacing: .08em; }
+.rev .cur { color: var(--sig); font-weight: 600; }
+.status { border-left: 0.75px solid var(--ink); font-family: var(--mono); font-size: 9.5px; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; min-width: 0; }
+.status > div { border-bottom: 0.5px solid var(--rule); border-right: 0.5px solid var(--rule); padding: 5px 8px; display: grid; align-content: center; gap: 2px; min-width: 0; }
+.status > div:nth-child(2n) { border-right: 0; }
+.status > div:nth-last-child(-n+2) { border-bottom: 0; }
+.status .k { color: var(--ink-3); letter-spacing: .1em; font-size: 7.5px; }
+.status .v { font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.status .v.sig { color: var(--sig); font-weight: 600; }
+
+/* body grid: default 3 columns x 2 rows */
+.body { display: grid; grid-template-columns: 560fr 540fr 520fr; grid-template-rows: 538px minmax(0, 1fr); min-height: 0; }
+.panel { border-right: 0.75px solid var(--ink); border-bottom: 0.75px solid var(--ink); padding: 9px 12px 10px; position: relative; min-width: 0; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 6px; }
+.panel.r { border-right: 0; }
+.panel.b { border-bottom: 0; }
+.ph { display: flex; align-items: baseline; gap: 8px; border-bottom: 0.5px solid var(--rule); padding-bottom: 4px; min-width: 0; }
+.ph .n { font-family: var(--mono); font-size: 10px; font-weight: 600; border: 0.75px solid var(--ink); padding: 0 4px; line-height: 14px; }
+.ph h2 { font-size: 13px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; white-space: nowrap; }
+.ph .s { margin-left: auto; font-family: var(--mono); font-size: 9.5px; color: var(--ink-3); white-space: nowrap; }
+/* revision delta marker for HTML headings: <span class="delta" data-rev="B"></span> */
+.delta { display: inline-block; width: 15px; height: 13px; position: relative; margin: 0 2px; flex: none; align-self: center; }
+.delta::before { content: ""; position: absolute; left: 0; top: 0; border-left: 7.5px solid transparent; border-right: 7.5px solid transparent; border-bottom: 13px solid var(--sig); }
+.delta::after { content: attr(data-rev); position: absolute; left: 4.4px; top: 2.6px; font-family: var(--mono); font-size: 7.5px; font-weight: 700; color: #fff; }
+
+svg { display: block; width: 100%; height: 100%; overflow: visible; }
+svg text { font-family: var(--cond); }
+/* NEVER `svg text { fill: ... }`: CSS beats the fill attribute and silently recolours every label. */
+svg text:not([fill]) { fill: var(--ink); }
+svg .m, svg .m text { font-family: var(--mono); }
+.code { font-family: var(--mono); font-size: 10.6px; line-height: 1.5; white-space: pre; color: var(--ink); overflow: hidden; }
+.code .c { color: var(--ink-3); }
+.code .k { color: var(--sig); }
+.code .b { font-weight: 600; }
+.box { border: 0.75px solid var(--ink); background: #fff; padding: 6px 8px; min-width: 0; }
+.lbl { font-family: var(--mono); font-size: 9px; letter-spacing: .1em; color: var(--ink-3); text-transform: uppercase; }
+
+/* why notes: every panel says why (panel-foot note, or .key for the one decision the sheet turns on) */
+.why { display: grid; gap: 2px; border-top: 0.5px solid var(--rule); padding-top: 5px; min-width: 0; }
+.why p { font-size: 11.5px; line-height: 1.32; color: var(--ink-2); }
+.why.key { border: 0.75px solid var(--sig); padding: 6px 9px; }
+.why.key .lbl { color: var(--sig); }
+.why.key p { color: var(--ink); }
+
+/* traces */
+.trace { display: grid; gap: 2px; }
+.step { display: grid; grid-template-columns: 22px minmax(0, 1fr); column-gap: 6px; align-items: start; }
+.step .i { font-family: var(--mono); font-size: 9px; font-weight: 600; color: var(--ink-2); border: 0.6px solid var(--ink-2); border-radius: 50%; width: 17px; height: 17px; display: grid; place-items: center; margin-top: 1px; }
+.step .t { font-family: var(--mono); font-size: 10.6px; line-height: 1.45; }
+.step .t small { font-family: var(--cond); font-size: 11.5px; color: var(--ink-2); }
+.step.sub .i { border-style: dashed; }
+
+/* lists */
+ul.inv { list-style: none; display: grid; gap: 4px; align-content: start; }
+ul.inv li { display: grid; grid-template-columns: 12px minmax(0, 1fr); font-size: 12px; line-height: 1.32; }
+ul.inv li::before { content: "\25B8"; font-size: 9px; color: var(--ink-2); padding-top: 2px; }
+ul.inv code { font-family: var(--mono); font-size: 10.5px; white-space: nowrap; }
+
+/* title block */
+.tb { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5px; background: var(--rule); border: 0.75px solid var(--ink); font-family: var(--mono); font-size: 9px; }
+.tb > div { background: var(--sheet); padding: 3px 6px 4px; display: grid; gap: 1px; min-width: 0; }
+.tb > div.w2 { grid-column: span 2; }
+.tb > div.w3 { grid-column: span 3; }
+.tb .k { color: var(--ink-3); letter-spacing: .1em; font-size: 7.5px; }
+.tb .v { color: var(--ink); font-size: 10px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tb .v.big { font-family: var(--cond); font-size: 15px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
+.tb .v.sig { color: var(--sig); }
+
+/* data table (blast radius, decisions, request/response): <table class="t"> */
+table.t { width: 100%; border-collapse: collapse; }
+table.t th { font-family: var(--mono); font-size: 8.5px; font-weight: 500; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); text-align: left; background: var(--tint); padding: 3px 6px; border-top: 0.75px solid var(--ink); border-bottom: 0.5px solid var(--rule); white-space: nowrap; }
+table.t td { font-size: 11.5px; line-height: 1.3; padding: 4px 6px; border-bottom: 0.5px solid var(--hair); vertical-align: top; }
+table.t th.n, table.t td.n { text-align: right; font-family: var(--mono); font-size: 10.4px; white-space: nowrap; }
+table.t tr.tot td { font-weight: 600; }
+table.t code { font-family: var(--mono); font-size: 10px; }
+table.t .g { color: var(--ink-3); }
+table.t .delta { vertical-align: -1px; margin: 0 0 0 4px; }
+
+/* stack / rollout strip: <div class="stack" style="grid-template-columns: repeat(N, minmax(0, 1fr))"> */
+.stack { display: grid; border: 0.75px solid var(--ink); }
+.stack > div { border-right: 0.5px solid var(--rule); padding: 3px 6px 4px; display: grid; gap: 1px; align-content: start; min-width: 0; }
+.stack > div:last-child { border-right: 0; }
+.stack .k { font-family: var(--mono); font-size: 8.5px; letter-spacing: .08em; color: var(--ink-3); }
+.stack .v { font-size: 11px; font-weight: 600; line-height: 1.15; }
+.stack .s { font-family: var(--mono); font-size: 8.5px; color: var(--ink-2); }
+.stack .sig { background: var(--sig-wash); }
+.stack .sig .s { color: var(--sig); font-weight: 600; }
+
+/* wireframe callouts: <ol class="co"><li><b class="n">1</b><span>...</span></li></ol> */
+ol.co { list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 3px 14px; }
+ol.co li { display: grid; grid-template-columns: 18px minmax(0, 1fr); font-size: 11.5px; line-height: 1.3; color: var(--ink-2); }
+ol.co li b.n { font-family: var(--mono); font-size: 8.5px; font-weight: 600; color: var(--ink); border: 0.6px solid var(--ink); border-radius: 50%; width: 13px; height: 13px; display: grid; place-items: center; margin-top: 1px; }
+ol.co code { font-family: var(--mono); font-size: 10px; color: var(--ink); }
+/* code inside prose: why notes, trace steps, tables */
+.why code, .t td code { font-family: var(--mono); font-size: 10px; }
+.step .t small code { font-family: var(--mono); font-size: 10px; }
+</style>
+</head>
+<body>
+<div class="canvas" id="canvas">
+<div class="sheet">
+  <div class="inner">
+
+    <!-- HEADER -->
+    <div class="head">
+      <div class="title">
+        <div class="kicker">rack/rack &middot; Library change &middot; Pull request &middot; one sheet</div>
+        <h1>Configurable Multipart Parser &mdash; <em>PR #2497</em></h1>
+        <div class="dek">Lets an app choose the multipart parser per request through <b>rack.request.config</b>, the way the query parser is already chosen.</div>
+      </div>
+      <!-- NEW MODE: .status block. Revision mode would use the .rev table instead (see REFERENCE.md). -->
+      <div class="status">
+        <div><span class="k">STATUS</span><span class="v sig">MERGED 2026-10-29</span></div>
+        <div><span class="k">DELIVERY</span><span class="v">single PR &middot; 4 files &middot; +62 &minus;18</span></div>
+        <div><span class="k">CODE READ AT</span><span class="v">head 55f78e2 vs base 412b7e5</span></div>
+        <div><span class="k">NUMBERS</span><span class="v">none &middot; library PR</span></div>
+      </div>
+    </div>
+
+    <!-- BODY -->
+    <div class="body">
+
+      <!-- 01 WHAT IT READS -->
+      <section class="panel">
+        <div class="ph"><span class="n">01</span><h2>What it reads &middot; the contract</h2><span class="s">Rack env &middot; red = added by the PR</span></div>
+        <svg viewBox="0 0 536 474" role="img" aria-label="The PR adds a :multipart_parser key to the existing rack.request.config hash. Its value is a class that responds to parse_from_env(env), defaulting to Rack::Request::MultipartParser. Parser.parse_from_env reads rack.input and the CONTENT headers, reads the existing rack.multipart overrides, and writes rack.tempfiles, all moved unchanged from Multipart.parse_multipart.">
+          <defs>
+            <marker id="one" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M8,1 L8,11" stroke="#16191d" stroke-width="1"/></marker>
+            <marker id="many" viewBox="0 0 14 14" refX="13" refY="7" markerWidth="14" markerHeight="14" orient="auto-start-reverse"><path d="M3,7 L13,1 M3,7 L13,13 M3,7 L13,7" stroke="#16191d" stroke-width="1" fill="none"/></marker>
+            <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#16191d"/></marker>
+          </defs>
+
+          <!-- rack.request.config -->
+          <g>
+            <rect x="0.5" y="0.5" width="250" height="101" fill="#fff" stroke="#16191d" stroke-width="0.75" stroke-dasharray="3 2"/>
+            <rect x="0.5" y="0.5" width="250" height="20" fill="var(--tint)" stroke="#16191d" stroke-width="0.75"/>
+            <text x="8" y="14.5" class="m" font-size="10" font-weight="600">env["rack.request.config"]</text>
+            <text x="8" y="38" class="m" font-size="9.6" fill="#7b828b">:query_parser <tspan font-size="9">existing</tspan></text>
+            <text x="8" y="58" class="m" font-size="9.6" font-weight="600" fill="var(--sig)">:multipart_parser <tspan font-size="9" font-weight="400">NEW key</tspan></text>
+            <line x1="8" y1="70" x2="243" y2="70" stroke="#dde0e3"/>
+            <text x="8" y="86" font-size="10.5" fill="#4a5058">read by config_value(key), as before</text>
+          </g>
+          <line x1="251" y1="54" x2="288" y2="54" stroke="#16191d" stroke-width="0.9" marker-end="url(#ar)"/>
+
+          <!-- contract -->
+          <g>
+            <rect x="290.5" y="0.5" width="245" height="101" fill="#fff" stroke="var(--sig)" stroke-width="1.6"/>
+            <rect x="290.5" y="0.5" width="245" height="20" fill="var(--sig-wash)" stroke="var(--sig)" stroke-width="1.6"/>
+            <text x="298" y="14.5" class="m" font-size="10" font-weight="600">its value: a parser class</text>
+            <text x="298" y="38" class="m" font-size="9.4">.parse_from_env(env)</text>
+            <text x="298" y="54" class="m" font-size="9" fill="#7b828b">&#8594; params, or nil (no boundary)</text>
+            <line x1="298" y1="64" x2="528" y2="64" stroke="#dde0e3"/>
+            <text x="298" y="80" font-size="10.5" fill="#4a5058">unset &#8594; Request::MultipartParser</text>
+            <text x="298" y="92" font-size="10.5" fill="#4a5058">a subclass of Multipart::Parser</text>
+          </g>
+
+          <!-- parse_from_env -->
+          <rect x="150.5" y="140.5" width="236" height="44" fill="#fff" stroke="var(--sig)" stroke-width="1.4"/>
+          <text x="160" y="158" class="m" font-size="9.6" font-weight="600">Parser.parse_from_env(env)</text>
+          <text x="160" y="174" class="m" font-size="9" fill="#7b828b">NEW &#183; the env I/O lives here now</text>
+          <line x1="412" y1="102" x2="350" y2="138" stroke="#16191d" stroke-width="0.9" marker-end="url(#ar)"/>
+          <text x="400" y="124" class="m" font-size="8.5" fill="#4a5058">called on it</text>
+
+          <line x1="190" y1="185" x2="90" y2="238" stroke="#16191d" stroke-width="0.9" marker-end="url(#ar)"/>
+          <line x1="268" y1="185" x2="268" y2="238" stroke="#16191d" stroke-width="0.9" marker-end="url(#ar)"/>
+          <line x1="346" y1="185" x2="446" y2="238" stroke="#16191d" stroke-width="0.9" marker-end="url(#ar)"/>
+          <text x="118" y="206" class="m" font-size="8.5" fill="#4a5058" text-anchor="end">reads</text>
+          <text x="274" y="214" class="m" font-size="8.5" fill="#4a5058">reads</text>
+          <text x="420" y="206" class="m" font-size="8.5" fill="#4a5058">writes</text>
+
+          <!-- env cards -->
+          <g>
+            <rect x="0.5" y="240.5" width="170" height="96" fill="#fff" stroke="#16191d" stroke-width="0.75" stroke-dasharray="3 2"/>
+            <rect x="0.5" y="240.5" width="170" height="20" fill="var(--tint)" stroke="#16191d" stroke-width="0.75"/>
+            <text x="8" y="254.5" class="m" font-size="9.4" font-weight="600">request body</text>
+            <text x="8" y="278" class="m" font-size="9">rack.input</text>
+            <text x="8" y="294" class="m" font-size="9">CONTENT_LENGTH</text>
+            <text x="8" y="310" class="m" font-size="9">CONTENT_TYPE</text>
+            <text x="8" y="328" font-size="10" fill="#4a5058">no input &#8594; MissingInputError</text>
+          </g>
+          <g>
+            <rect x="183.5" y="240.5" width="170" height="96" fill="#fff" stroke="#16191d" stroke-width="0.75" stroke-dasharray="3 2"/>
+            <rect x="183.5" y="240.5" width="170" height="20" fill="var(--tint)" stroke="#16191d" stroke-width="0.75"/>
+            <text x="191" y="254.5" class="m" font-size="9.4" font-weight="600">per-env overrides</text>
+            <text x="191" y="278" class="m" font-size="8.6">rack.multipart.</text>
+            <text x="191" y="291" class="m" font-size="8.6">&#160;&#160;tempfile_factory</text>
+            <text x="191" y="306" class="m" font-size="8.6">&#160;&#160;buffer_size</text>
+            <text x="191" y="328" font-size="10" fill="#4a5058">still win over the hooks</text>
+          </g>
+          <g>
+            <rect x="366.5" y="240.5" width="169" height="96" fill="#fff" stroke="#16191d" stroke-width="0.75" stroke-dasharray="3 2"/>
+            <rect x="366.5" y="240.5" width="169" height="20" fill="var(--tint)" stroke="#16191d" stroke-width="0.75"/>
+            <text x="374" y="254.5" class="m" font-size="9.4" font-weight="600">written</text>
+            <text x="374" y="278" class="m" font-size="9">rack.tempfiles</text>
+            <text x="374" y="294" class="m" font-size="9" fill="#7b828b">= info.tmp_files</text>
+            <text x="374" y="328" font-size="10" fill="#4a5058">same key as before</text>
+          </g>
+          <text x="0" y="356" font-size="10.5" fill="#4a5058">Dashed: env keys that existed before the PR. Every read and write below the red box moved unchanged</text>
+          <text x="0" y="370" font-size="10.5" fill="#4a5058">from Multipart.parse_multipart. No schema, no new env key besides the config entry.</text>
+
+          <!-- why -->
+          <g transform="translate(0,392)">
+            <line x1="0" y1="0" x2="536" y2="0" stroke="#b9bec4" stroke-width="0.5"/>
+            <text x="0" y="15" class="m" font-size="8.5" fill="#7b828b">WHY A CONFIG KEY &#183; PR BODY</text>
+            <text x="0" y="30" font-size="11.2">&#8220;Similar to how the query parser is configured&#8221;: :query_parser already lives in</text>
+            <text x="0" y="44" font-size="11.2">rack.request.config and is read through config_value, so the multipart parser follows the</text>
+            <text x="0" y="58" font-size="11.2">same lookup instead of adding a new env key or a global setting.</text>
+          </g>
+        </svg>
+      </section>
+
+      <!-- 02 SYSTEM IT TOUCHES -->
+      <section class="panel">
+        <div class="ph"><span class="n">02</span><h2>The system it touches</h2><span class="s">Request | Multipart</span></div>
+        <svg viewBox="0 0 516 477" role="img" aria-label="Request#POST calls form_pairs, which now asks the new multipart_parser helper for a class: the :multipart_parser config value, else the new Request::MultipartParser. Below the Request to Multipart boundary, form_pairs calls Parser.parse_from_env on that class, which uses three new overridable class-method defaults. Multipart.parse_multipart is now a one-line delegate to parse_from_env.">
+          <rect x="0.5" y="0.5" width="140" height="44" fill="#fff" stroke="#16191d" stroke-width="0.75" stroke-dasharray="3 2"/>
+          <text x="8" y="18" class="m" font-size="9.6" font-weight="600">Request#POST</text>
+          <text x="8" y="34" class="m" font-size="9" fill="#7b828b">unchanged</text>
+          <line x1="141" y1="22" x2="163" y2="22" stroke="#16191d" stroke-width="0.9" marker-end="url(#ar)"/>
+          <rect x="165.5" y="0.5" width="180" height="44" fill="#fff" stroke="var(--sig)" stroke-width="1.4"/>
+          <text x="173" y="18" class="m" font-size="9.6" font-weight="600">form_pairs</text>
+          <text x="173" y="34" class="m" font-size="9" fill="#7b828b">1 line changed</text>
+          <line x1="346" y1="22" x2="368" y2="22" stroke="#16191d" stroke-width="0.9" marker-end="url(#ar)"/>
+          <rect x="370.5" y="0.5" width="145" height="44" fill="#fff" stroke="var(--sig)" stroke-width="1.4"/>
+          <text x="378" y="18" class="m" font-size="9.6" font-weight="600">multipart_parser</text>
+          <text x="378" y="34" class="m" font-size="9" fill="#7b828b">NEW &#183; private</text>
+
+          <line x1="400" y1="45" x2="200" y2="80" stroke="#16191d" stroke-width="0.9" marker-end="url(#ar)"/>
+          <text x="300" y="76" class="m" font-size="8.5" fill="#4a5058" text-anchor="end">1st</text>
+          <line x1="470" y1="45" x2="470" y2="80" stroke="#16191d" stroke-width="0.9" marker-end="url(#ar)"/>
+          <text x="476" y="66" class="m" font-size="8.5" fill="#4a5058">||</text>
+
+          <rect x="0.5" y="82.5" width="240" height="44" fill="#fff" stroke="#16191d" stroke-width="0.75" stroke-dasharray="3 2"/>
+          <text x="8" y="100" class="m" font-size="9.4" font-weight="600">config_value(:multipart_parser)</text>
+          <text x="8" y="116" class="m" font-size="9" fill="#7b828b">env.dig(RACK_REQUEST_CONFIG, key)</text>
+          <rect x="265.5" y="82.5" width="250" height="44" fill="#fff" stroke="var(--sig)" stroke-width="1.4"/>
+          <text x="273" y="100" class="m" font-size="9.4" font-weight="600">Request::MultipartParser</text>
+          <text x="273" y="116" class="m" font-size="9" fill="#7b828b">NEW &#183; &lt; Multipart::Parser</text>
+
+          <line x1="0" y1="150" x2="516" y2="150" stroke="var(--sig)" stroke-width="1.1" stroke-dasharray="6 4"/>
+          <text x="0" y="143" font-size="10.5" font-weight="700" fill="var(--sig)">&#9650; Rack::Request</text>
+          <text x="0" y="164" font-size="10.5" fill="#4a5058">&#9660; Rack::Multipart</text>
+
+          <line x1="470" y1="127" x2="470" y2="182" stroke="#16191d" stroke-width="0.8" stroke-dasharray="3 2" marker-end="url(#ar)"/>
+          <text x="476" y="168" class="m" font-size="8.5" fill="#7b828b">inherits</text>
+          <text x="464" y="168" class="m" font-size="8.5" fill="#4a5058" text-anchor="end">form_pairs calls .parse_from_env(env)</text>
+
+          <rect x="0.5" y="184.5" width="200" height="44" fill="#fff" stroke="var(--sig)" stroke-width="1.4"/>
+          <text x="8" y="202" class="m" font-size="9.2" font-weight="600">Multipart.parse_multipart</text>
+          <text x="8" y="218" class="m" font-size="9" fill="#7b828b">&#8722;17 &#183; now a one-line delegate</text>
+          <line x1="201" y1="206" x2="228" y2="206" stroke="#16191d" stroke-width="0.9" marker-end="url(#ar)"/>
+          <rect x="230.5" y="184.5" width="285" height="44" fill="#fff" stroke="var(--sig)" stroke-width="1.4"/>
+          <text x="238" y="202" class="m" font-size="9.4" font-weight="600">Parser.parse_from_env(env, query_parser:)</text>
+          <text x="238" y="218" class="m" font-size="9" fill="#7b828b">NEW &#183; then parse(io, &#8230;) as before</text>
+
+          <line x1="300" y1="229" x2="88" y2="252" stroke="#16191d" stroke-width="0.8" marker-end="url(#ar)"/>
+          <line x1="340" y1="229" x2="244" y2="252" stroke="#16191d" stroke-width="0.8" marker-end="url(#ar)"/>
+          <line x1="420" y1="229" x2="430" y2="252" stroke="#16191d" stroke-width="0.8" marker-end="url(#ar)"/>
+
+          <rect x="0.5" y="254.5" width="160" height="58" fill="#fff" stroke="var(--sig)" stroke-width="1.4"/>
+          <text x="8" y="271" class="m" font-size="8.8" font-weight="600">default_tempfile_factory</text>
+          <text x="8" y="287" class="m" font-size="8.6" fill="#4a5058">&#8594; TEMPFILE_FACTORY</text>
+          <text x="8" y="302" class="m" font-size="8.6" fill="#7b828b">NEW hook</text>
+          <rect x="168.5" y="254.5" width="150" height="58" fill="#fff" stroke="var(--sig)" stroke-width="1.4"/>
+          <text x="176" y="271" class="m" font-size="8.8" font-weight="600">default_bufsize</text>
+          <text x="176" y="287" class="m" font-size="8.6" fill="#4a5058">&#8594; BUFSIZE</text>
+          <text x="176" y="302" class="m" font-size="8.6" fill="#7b828b">NEW hook</text>
+          <rect x="326.5" y="254.5" width="189" height="58" fill="#fff" stroke="var(--sig)" stroke-width="1.4"/>
+          <text x="334" y="271" class="m" font-size="8.8" font-weight="600">default_query_parser</text>
+          <text x="334" y="287" class="m" font-size="8.4" fill="#4a5058">&#8594; Utils.default_query_parser</text>
+          <text x="334" y="302" class="m" font-size="8.6" fill="#7b828b">Request&#8217;s: ParamList</text>
+
+          <g transform="translate(0,334)">
+            <line x1="0" y1="0" x2="516" y2="0" stroke="#b9bec4" stroke-width="0.5"/>
+            <text x="0" y="14" class="m" font-size="8.5" fill="#7b828b">UNCHANGED CALLERS</text>
+            <text x="0" y="28" font-size="11.2">extract_multipart and the deprecated Request#parse_multipart still call parse_multipart,</text>
+            <text x="0" y="42" font-size="11.2">which now passes its params argument through as query_parser:.</text>
+            <text x="0" y="62" class="m" font-size="8.5" fill="#7b828b">WHY THE ENV READS MOVED BELOW THE LINE &#183; PR BODY</text>
+            <text x="0" y="77" font-size="11.2">&#8220;To enable this, add some class methods to Rack::Multipart::Parser&#8221;: once the env-reading</text>
+            <text x="0" y="91" font-size="11.2">half is a class method, the class chosen in config decides the tempfile factory, buffer size</text>
+            <text x="0" y="105" font-size="11.2">and query parser. Request only picks the class; it no longer names Rack::Multipart.</text>
+          </g>
+        </svg>
+      </section>
+
+      <!-- 03 TRACE PATHS -->
+      <section class="panel r">
+        <div class="ph"><span class="n">03</span><h2>Trace paths</h2><span class="s">POST &middot; legacy &middot; spec</span></div>
+        <div style="display:grid; gap:8px; align-content:start; min-height:0">
+          <div>
+            <div class="lbl" style="margin-bottom:4px">P &middot; req.POST with a multipart body</div>
+            <div class="trace">
+              <div class="step"><span class="i">P1</span><span class="t"><b>Request#POST</b> &#8594; form_pairs</span></div>
+              <div class="step"><span class="i">P2</span><span class="t">form_data? || parseable_data? &#8594;<br><b>multipart_parser.parse_from_env</b>(env)</span></div>
+              <div class="step sub"><span class="i">P3</span><span class="t">config_value(:multipart_parser) || MultipartParser</span></div>
+              <div class="step"><span class="i">P4</span><span class="t">io = env[RACK_INPUT] or raise MissingInputError</span></div>
+              <div class="step sub"><span class="i">P5</span><span class="t">env[RACK_MULTIPART_*] || <b>default_tempfile_factory</b>,<br>&nbsp;&nbsp;<b>default_bufsize</b><br><small><b>Why on self:</b> called on the receiving class, so a subclass override applies</small></span></div>
+              <div class="step sub"><span class="i">P6</span><span class="t">query_parser: <b>default_query_parser</b><br><small>form_pairs passes none &#8594; MultipartParser&#8217;s ParamList</small></span></div>
+              <div class="step"><span class="i">P7</span><span class="t">parse(io, length, type, tempfile, bufsize, qp)<br>env[RACK_TEMPFILES] = info.tmp_files</span></div>
+              <div class="step"><span class="i">P8</span><span class="t">params &#8594; set_header RACK_REQUEST_FORM_PAIRS<br><small>nil (no boundary) &#8594; the urlencoded fallback, as before</small></span></div>
+            </div>
+          </div>
+          <div>
+            <div class="lbl" style="margin-bottom:4px">L &middot; legacy entry point</div>
+            <div class="trace">
+              <div class="step"><span class="i">L1</span><span class="t"><b>Multipart.parse_multipart</b>(env, params) &#8594;<br>&nbsp;&nbsp;Parser.parse_from_env(env, query_parser: params)</span></div>
+            </div>
+          </div>
+          <div>
+            <div class="lbl" style="margin-bottom:4px">T &middot; the added spec (spec_request.rb)</div>
+            <div class="trace">
+              <div class="step"><span class="i">T1</span><span class="t">Class.new(Request::MultipartParser) overrides<br>&nbsp;&nbsp;default_tempfile_factory &#8594; raise</span></div>
+              <div class="step sub"><span class="i">T2</span><span class="t">config {multipart_parser:} &#8594; req.POST raises<br><small>proves the configured class and its hook are used</small></span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 04 MECHANISM -->
+      <section class="panel b">
+        <div class="ph"><span class="n">04</span><h2>Mechanism &middot; class-method hooks</h2><span class="s">parser.rb + request.rb</span></div>
+        <div style="display:grid; gap:7px; align-content:start">
+          <div class="box code"><span class="c"># multipart/parser.rb (default_tempfile_factory,</span>
+<span class="c">#   default_bufsize: same shape)</span>
+<span class="k">def</span> self.<b class="b">default_query_parser</b>
+  Rack::Utils.default_query_parser
+<span class="k">end</span>
+
+<span class="c"># request.rb: the default multipart parser</span>
+<span class="k">class</span> <b class="b">MultipartParser</b> &lt; Multipart::Parser
+  <span class="k">def</span> self.<b class="b">default_query_parser</b>
+    Rack::Multipart::ParamList
+  <span class="k">end</span>
+<span class="k">end</span></div>
+          <div class="why key"><span class="lbl">WHY A SUBCLASS AS THE DEFAULT</span>
+            <p>form_pairs used to pass <code>ParamList</code> explicitly. It now passes no query parser, so the default class returns <code>ParamList</code> from its hook and the default parse still yields pairs, exactly as before.</p></div>
+        </div>
+      </section>
+
+      <!-- 05 HOW IT'S USED -->
+      <section class="panel b">
+        <div class="ph"><span class="n">05</span><h2>How an app uses it</h2><span class="s">from the added spec</span></div>
+        <div style="display:grid; gap:7px; align-content:start">
+          <div class="box code"><span class="k">no_uploads</span> = Class.new(Rack::Request::MultipartParser) <span class="k">do</span>
+  <span class="k">def</span> self.<b class="b">default_tempfile_factory</b>
+    proc { raise "no uploads allowed" }
+  <span class="k">end</span>
+<span class="k">end</span>
+env["rack.request.config"] = { multipart_parser: no_uploads }
+req.POST  <span class="c"># =&gt; RuntimeError "no uploads allowed"</span></div>
+          <table class="t">
+            <tr><th>Setting</th><th>First match wins</th></tr>
+            <tr><td>parser class</td><td><code>:multipart_parser</code> &#8594; <code>Request::MultipartParser</code></td></tr>
+            <tr><td>tempfile, buffer</td><td><code>env[rack.multipart.*]</code> &#8594; the class&#8217;s <code>default_*</code> hook</td></tr>
+            <tr><td>query parser</td><td><code>query_parser:</code> argument &#8594; <code>default_query_parser</code></td></tr>
+          </table>
+          <ul class="inv"><li><span><b>Why env keys still win:</b> those reads moved unchanged from <code>parse_multipart</code>; the hooks only replace the constants.</span></li></ul>
+        </div>
+      </section>
+
+      <!-- 06 GUARANTEES + TITLE BLOCK -->
+      <section class="panel r b">
+        <div class="ph"><span class="n">06</span><h2>Guarantees &middot; rollout &middot; later</h2><span class="s">single PR</span></div>
+        <div style="display:grid; grid-template-rows: auto auto 1fr auto; gap: 7px; min-height: 0">
+          <ul class="inv">
+            <li><span>No <code>:multipart_parser</code> set &#8594; the same pairs as before (ParamList).</span></li>
+            <li><span><code>parse_multipart</code> keeps its signature; <code>TEMPFILE_FACTORY</code> and <code>BUFSIZE</code> stay, returned by the hooks.</span></li>
+            <li><span><b>Why no flag:</b> nothing changes until an app puts a class in the config.</span></li>
+            <li><span style="color:var(--ink-2)"><b>Later (PR body):</b> move more settings, e.g. limits, into Parser class or instance methods.</span></li>
+          </ul>
+          <div class="stack" style="grid-template-columns: repeat(3, minmax(0, 1fr))">
+            <div><span class="k">1 &middot; MERGE</span><span class="v">#2497</span><span class="s">2026-10-29</span></div>
+            <div><span class="k">2 &middot; RELEASE</span><span class="v">next rack gem</span><span class="s">not confirmed</span></div>
+            <div class="sig"><span class="k">3 &middot; FIRST EFFECT</span><span class="v">app sets the key</span><span class="s">opt-in</span></div>
+          </div>
+          <div></div>
+          <div class="tb">
+            <div class="w3"><span class="k">TITLE</span><span class="v big">Configurable Multipart Parser &middot; PR</span></div>
+            <div><span class="k">PROJECT</span><span class="v">rack/rack &middot; Request</span></div>
+            <div><span class="k">DWG</span><span class="v">pr2497-multipart-parser</span></div>
+            <div><span class="k">REV</span><span class="v sig">A &middot; MERGED</span></div>
+            <div><span class="k">STACK</span><span class="v">#2497 &middot; single PR</span></div>
+            <div><span class="k">DATE</span><span class="v">2026-10-29</span></div>
+            <div><span class="k">SHEET</span><span class="v">1 OF 1 &middot; NTS</span></div>
+            <div class="w3"><span class="k">SOURCE</span><span class="v">PR #2497 @ 55f78e2 vs 412b7e5 &middot; rack-pr2497-multipart-parser-config.data.json</span></div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+  // Self-check, read by scripts/render.rb. Runs only with ?lint in the URL; writes JSON into #one-pager-lint.
+  (function () {
+    if (!/[?&]lint\b/.test(location.search)) return;
+    function snippet(el) { return (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 70); }
+    function run() {
+      var issues = [];
+      var canvas = document.getElementById('canvas');
+      var meta = document.querySelector('meta[name="one-pager:size"]');
+      if (meta) {
+        var size = meta.content.split('x').map(Number);
+        if (canvas.offsetWidth !== size[0] || canvas.offsetHeight !== size[1]) issues.push({ kind: 'canvas-size', detail: 'meta says ' + meta.content + ', .canvas is ' + canvas.offsetWidth + 'x' + canvas.offsetHeight });
+      }
+      var head = document.querySelector('.head');
+      if (head) {
+        var headBottom = head.getBoundingClientRect().bottom;
+        head.querySelectorAll('*').forEach(function (el) {
+          if (el.children.length === 0 && el.textContent.trim() && el.getBoundingClientRect().bottom > headBottom + 1) issues.push({ kind: 'header-overflow', detail: snippet(el) });
+        });
+      }
+      document.querySelectorAll('.panel').forEach(function (panel, index) {
+        if (panel.scrollHeight > panel.clientHeight + 1 || panel.scrollWidth > panel.clientWidth + 1) {
+          issues.push({ kind: 'panel-overflow', panel: index + 1, detail: (panel.querySelector('h2') || panel).textContent.trim() + ': content ' + panel.scrollWidth + 'x' + panel.scrollHeight + ' > box ' + panel.clientWidth + 'x' + panel.clientHeight });
+        }
+      });
+      document.querySelectorAll('.canvas *').forEach(function (el) {
+        if (el.closest('svg') || el.closest('.ticks')) return;
+        var style = getComputedStyle(el);
+        var clips = style.overflow === 'hidden' || style.overflowX === 'hidden' || style.textOverflow === 'ellipsis';
+        var clippedY = style.overflow === 'hidden' || style.overflowY === 'hidden';
+        if (clips && el.scrollWidth > el.clientWidth + 1 && !el.classList.contains('canvas')) issues.push({ kind: 'clipped-text', detail: snippet(el) });
+        else if (clippedY && el.scrollHeight > el.clientHeight + 1 && !el.classList.contains('canvas') && !el.classList.contains('panel')) issues.push({ kind: 'clipped-text', detail: 'bottom cut off: ' + snippet(el) });
+        if (el.children.length === 0 && el.textContent.trim() && parseFloat(style.fontSize) < 7.5) issues.push({ kind: 'tiny-text', detail: style.fontSize + ' ' + snippet(el) });
+      });
+      document.querySelectorAll('.canvas svg').forEach(function (svg, svgIndex) {
+        var vb = svg.viewBox && svg.viewBox.baseVal;
+        var boxes = [];
+        svg.querySelectorAll('text').forEach(function (text) {
+          if (text.closest('marker, defs')) return;
+          var b; try { b = text.getBBox(); } catch (e) { return; }
+          if (!b.width) return;
+          var ctm = text.getCTM(), root = svg.getCTM();
+          var dx = ctm && root ? (ctm.e - root.e) / root.a : 0, dy = ctm && root ? (ctm.f - root.f) / root.d : 0;
+          var box = { x: b.x + dx, y: b.y + dy, w: b.width, h: b.height, label: snippet(text) };
+          boxes.push(box);
+          if (vb && vb.width && (box.x < vb.x - 1 || box.y < vb.y - 14 || box.x + box.w > vb.x + vb.width + 1 || box.y + box.h > vb.y + vb.height + 1)) {
+            issues.push({ kind: 'svg-text-outside-viewbox', svg: svgIndex + 1, detail: box.label });
+          }
+        });
+// A label that starts inside a box must also end inside it, 5 units clear of the right edge.
+var rects = [];
+svg.querySelectorAll('rect').forEach(function (rect) {
+  if (rect.closest('marker, defs')) return;
+  var rb; try { rb = rect.getBBox(); } catch (e) { return; }
+  var rctm = rect.getCTM(), rroot = svg.getCTM();
+  var rdx = rctm && rroot ? (rctm.e - rroot.e) / rroot.a : 0, rdy = rctm && rroot ? (rctm.f - rroot.f) / rroot.d : 0;
+  if (rb.width > 4 && rb.height > 4) rects.push({ x: rb.x + rdx, y: rb.y + rdy, w: rb.width, h: rb.height });
+});
+boxes.forEach(function (t) {
+  var sx = t.x + 1, sy = t.y + t.h / 2, host = null;
+  rects.forEach(function (r) {
+    if (sx >= r.x && sx <= r.x + r.w && sy >= r.y && sy <= r.y + r.h && (!host || r.w * r.h <= host.w * host.h)) host = r;  // ties: the last-painted (visible) box wins
+  });
+  if (host && (t.x + t.w > host.x + host.w - 5 || t.y + t.h > host.y + host.h + 1)) issues.push({ kind: 'svg-text-exceeds-box', svg: svgIndex + 1, detail: t.label });
+});
+// A connector line must not cross a label (the label box shrunk 1.5 units, so lines that
+// merely graze an edge or run beside a label don't count).
+svg.querySelectorAll('line').forEach(function (line) {
+  if (line.closest('marker, defs')) return;
+  var lctm = line.getCTM(), lroot = svg.getCTM();
+  var ldx = lctm && lroot ? (lctm.e - lroot.e) / lroot.a : 0, ldy = lctm && lroot ? (lctm.f - lroot.f) / lroot.d : 0;
+  var x1 = line.x1.baseVal.value + ldx, y1 = line.y1.baseVal.value + ldy, x2 = line.x2.baseVal.value + ldx, y2 = line.y2.baseVal.value + ldy;
+  boxes.forEach(function (t) {
+    var bx1 = t.x + 1.5, by1 = t.y + 1.5, bx2 = t.x + t.w - 1.5, by2 = t.y + t.h - 1.5;
+    if (bx2 <= bx1 || by2 <= by1) return;
+    // Liang-Barsky clip of the segment against the label box.
+    var dx = x2 - x1, dy = y2 - y1, p = [-dx, dx, -dy, dy], q = [x1 - bx1, bx2 - x1, y1 - by1, by2 - y1], u1 = 0, u2 = 1, hit = true;
+    for (var k = 0; k < 4; k++) {
+      if (p[k] === 0) { if (q[k] < 0) { hit = false; break; } }
+      else { var r = q[k] / p[k]; if (p[k] < 0) { if (r > u1) u1 = r; } else { if (r < u2) u2 = r; } if (u1 > u2) { hit = false; break; } }
+    }
+    if (hit) issues.push({ kind: 'svg-line-through-text', svg: svgIndex + 1, detail: t.label });
+  });
+});
+        for (var i = 0; i < boxes.length; i++) {
+          for (var j = i + 1; j < boxes.length; j++) {
+            var a = boxes[i], c = boxes[j];
+            var ox = Math.min(a.x + a.w, c.x + c.w) - Math.max(a.x, c.x);
+            var oy = Math.min(a.y + a.h, c.y + c.h) - Math.max(a.y, c.y);
+            if (ox > 1.5 && oy > 2.5) issues.push({ kind: 'svg-text-overlap', svg: svgIndex + 1, detail: '"' + a.label + '" x "' + c.label + '"' });
+          }
+        }
+      });
+      // Advisory: every panel should say WHY (a "WHY ..." note, a "Why ...:" lead, or a WHY box).
+      document.querySelectorAll(".panel").forEach(function (panel, index) {
+        if (!/\bwhy\b/i.test(panel.innerText || panel.textContent)) issues.push({ kind: "no-why", advisory: true, panel: index + 1, detail: (panel.querySelector("h2") || panel).textContent.trim() });
+      });
+      var families = {};
+      document.fonts.forEach(function (face) { if (face.status === 'loaded') families[face.family.replace(/"/g, '')] = true; });
+      ['IBM Plex Mono', 'IBM Plex Sans Condensed'].forEach(function (family) { if (!families[family]) issues.push({ kind: 'font-fallback', detail: family + ' did not load' }); });
+      var out = document.createElement('pre');
+      out.id = 'one-pager-lint';
+      out.textContent = JSON.stringify({ issues: issues });
+      document.body.appendChild(out);
+    }
+    (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(function () { setTimeout(run, 50); });
+  })();
+</script>
+</body>
+</html>

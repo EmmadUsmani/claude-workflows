@@ -1,0 +1,42 @@
+== 1. use A; use B; run app  ->  GET /x
+built: A
+init B (wraps Proc)
+init A (wraps B)
+A in  SCRIPT_NAME="" PATH_INFO="/x"
+B in  SCRIPT_NAME="" PATH_INFO="/x"
+app  SCRIPT_NAME="" PATH_INFO="/x"
+B out
+A out
+
+== 2. use A; map('/api') { run app }; use C; run app  ->  GET /api/users and GET /other
+built: outermost=A
+init C (wraps Proc)
+init A (wraps Rack::URLMap)
+-- GET /api/users
+A in  SCRIPT_NAME="" PATH_INFO="/api/users"
+app  SCRIPT_NAME="/api" PATH_INFO="/users"
+A out
+-- GET /other
+A in  SCRIPT_NAME="" PATH_INFO="/other"
+C in  SCRIPT_NAME="" PATH_INFO="/other"
+app  SCRIPT_NAME="" PATH_INFO="/other"
+C out
+A out
+
+== 3. URLMap longest-prefix: map '/a' and '/a/b'  ->  GET /a/b/c and GET /ab
+/a/b/c  -> 200 /a/b SN=/a/b PI=/c 
+/ab     -> 404 Not Found: /ab pass
+/a      -> 200 /a   SN=/a PI= 
+
+== 4. Builder#call rebuilds every request
+warmup ran 3 times for 3 calls
+
+== 5. no run
+RuntimeError: missing run or map statement
+
+== 6. BodyProxy: the after-hook fires on body.close, not when call returns
+Logger6 call returned
+server got response tuple
+server writes chunk1
+server writes chunk2
+Logger6 close callback (log line written)
