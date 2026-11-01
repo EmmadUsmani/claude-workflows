@@ -1,0 +1,921 @@
+{
+  "pr": {
+    "repo": "fastify/fastify",
+    "number": 7139,
+    "title": "fix: handle web Response in auto HEAD route",
+    "state": "open",
+    "author": "RubenPari",
+    "headRef": "fix/head-route-web-response",
+    "baseRef": "main",
+    "headSha": "3f3bd4d59ba30329bf25cb313e1deeb498c8f211",
+    "baseSha": "ce41dc0fbb4ed75e9a42f3972ac896333f6a7396",
+    "additions": 192,
+    "deletions": 2,
+    "files": 7,
+    "commits": 2
+  },
+  "slug": "fastify-pr7139-review-graph",
+  "title": "fastify#7139 Review Graph",
+  "summary": "Fixes #7113: the auto-exposed HEAD route answered 500 when the GET handler sent a web Response, because the HEAD onSend hook runs before onSendEnd unwraps the Response and fell through to Buffer.byteLength. The hook gains a Response branch that cancels the body and hands onSendEnd a body-less Response with the same status and headers, passing null/used/locked bodies through unchanged. A second commit routes all HEAD stream-error logs through a new LogController#headStreamError. Three findings from the review (all Low/Nit).",
+  "note": "Code read at head 3f3bd4d59b vs base ce41dc0fbb. Docs left out as a node: docs/Reference/Server.md (+1 row in the LogController method table, line 459). No generated files. No screenshots: library PR with no visible surface (headRouteOnSendHandler and onSendEnd are the nodes a captured HEAD/GET inject exchange would evidence). Reviewed while open; local tests not run, and CI had only run the label check on this head.",
+  "contextLabel": "Runtime",
+  "lanes": [
+    {
+      "id": "setup",
+      "label": "Route setup"
+    },
+    {
+      "id": "hook",
+      "label": "HEAD onSend hook"
+    },
+    {
+      "id": "log",
+      "label": "LogController"
+    },
+    {
+      "id": "reply",
+      "label": "Reply pipeline"
+    },
+    {
+      "id": "runtime",
+      "label": "Leaves · runtime",
+      "note": "callees outside the hook"
+    }
+  ],
+  "boundaries": [
+    {
+      "afterLane": 3,
+      "label": "fastify | runtime"
+    }
+  ],
+  "stack": [],
+  "modeNotes": {
+    "before": "Base: a Response payload reaches Buffer.byteLength and throws; HEAD stream errors log via reply.log.error unconditionally.",
+    "after": "Head: Response branch cancels the body and passes a body-less Response; stream errors go through LogController#headStreamError."
+  },
+  "nodes": [
+    {
+      "id": "routeHead",
+      "lane": "setup",
+      "row": 0.0,
+      "type": "Method",
+      "name": "auto-HEAD registration",
+      "sub": "route.js · prepareRoute",
+      "kind": "unchanged",
+      "file": "lib/route.js",
+      "line": 455,
+      "bullets": [
+        "Registers HEAD for every GET route",
+        "Untouched; wires the hook below"
+      ],
+      "summary": "When exposeHeadRoute is on and the GET route has no explicit HEAD handler, route.js registers a HEAD route whose onSend list ends with headRouteOnSendHandler.",
+      "facts": [
+        [
+          "condition",
+          "shouldExposeHead && isGetRoute && !isHeadRoute && !hasHEADHandler"
+        ],
+        [
+          "option",
+          "exposeHeadRoute ?? exposeHeadRoutes (route.js:225)"
+        ]
+      ],
+      "factsTitle": "Inputs",
+      "code": "c-routeHead",
+      "codeTitle": "Registration"
+    },
+    {
+      "id": "parseHead",
+      "lane": "setup",
+      "row": 1.0,
+      "type": "Function",
+      "name": "parseHeadOnSendHandlers",
+      "sub": "head-route.js",
+      "kind": "unchanged",
+      "file": "lib/head-route.js",
+      "line": 54,
+      "bullets": [
+        "Appends the HEAD hook after user hooks",
+        "Untouched"
+      ],
+      "summary": "Builds the HEAD route's onSend list: user-supplied onSend hooks first, headRouteOnSendHandler last, so the hook always sees the final payload.",
+      "code": "c-parseHead",
+      "codeTitle": "Excerpt"
+    },
+    {
+      "id": "headOnSend",
+      "lane": "hook",
+      "row": 5.0,
+      "type": "onSend hook",
+      "name": "headRouteOnSendHandler",
+      "sub": "head-route.js",
+      "kind": "modified",
+      "add": 20,
+      "del": 2,
+      "file": "lib/head-route.js",
+      "line": 5,
+      "bullets": [
+        "Strips the body for auto-HEAD replies",
+        "New branch for a web Response payload"
+      ],
+      "summary": "The last onSend hook on an auto-HEAD route. It branches on the payload: undefined, node stream (resume and drain), web stream (cancel), and now web Response; anything else gets a content-length from Buffer.byteLength. The Response branch cancels a readable body and passes on new Response(null, { status, headers }) so onSendEnd applies GET's status and headers with no body; a null, used or locked body is passed through unchanged so HEAD reproduces GET's error. All three stream-error loggers now call LogController#headStreamError.",
+      "changes": [
+        "Added Response branch (lines 32-45) using the same [object Response] tag check as reply.js",
+        "Pass-through when body is null, bodyUsed, or body.locked",
+        "reply.log.error(...) replaced by reply.server[kLogController].headStreamError(err, req, reply) in both stream branches and the new branch",
+        "Imports kLogController from ./symbols.js"
+      ],
+      "sig": [
+        "headRouteOnSendHandler (req, reply, payload, done)",
+        "headRouteOnSendHandler (req, reply, payload, done) — unchanged"
+      ],
+      "facts": [
+        [
+          "runs",
+          "onSend phase, before onSendEnd unwraps a Response"
+        ],
+        [
+          "position",
+          "last onSend hook on the HEAD route"
+        ],
+        [
+          "cancel reason",
+          "'Stream cancelled by HEAD route'"
+        ],
+        [
+          "pass-through",
+          "body === null || bodyUsed || body.locked"
+        ]
+      ],
+      "factsTitle": "Behaviour",
+      "code": "c-headOnSend",
+      "codeTitle": "headRouteOnSendHandler at head"
+    },
+    {
+      "id": "specRoute7",
+      "lane": "hook",
+      "row": 4.0,
+      "type": "Spec",
+      "name": "route.7.test.js",
+      "sub": "test/route.7.test.js",
+      "kind": "modified",
+      "add": 114,
+      "del": 0,
+      "file": "test/route.7.test.js",
+      "line": 99,
+      "bullets": [
+        "4 new HEAD + web Response tests",
+        "Status/headers, cancel, locked, log line"
+      ],
+      "summary": "Four new integration tests: HEAD mirrors a 201 Response's status, x-demo and content-type with an empty body (:99); the body stream is cancelled with the HEAD reason (:122); a locked body gives 500 on GET and HEAD (:148); a cancel() error is logged at level 50 with the HEAD message (:172).",
+      "facts": [
+        [
+          "covered",
+          "readable body, locked body, cancel error"
+        ],
+        [
+          "not covered",
+          "null body, bodyUsed body, content-length / set-cookie on HEAD"
+        ]
+      ],
+      "factsTitle": "Coverage",
+      "code": "c-specRoute7",
+      "codeTitle": "Two of the four tests"
+    },
+    {
+      "id": "headStreamError",
+      "lane": "log",
+      "row": 2.0,
+      "type": "Method",
+      "name": "headStreamError",
+      "sub": "log-controller.js · LogController",
+      "kind": "added",
+      "add": 14,
+      "del": 0,
+      "file": "lib/log-controller.js",
+      "line": 116,
+      "bullets": [
+        "New overridable log method",
+        "Guarded by isLogDisabled(request)"
+      ],
+      "summary": "A new public LogController method with the controller's shared error signature (error, request, reply, metadata). It returns early when request logging is disabled, else logs at error level with the message the old inline call used. Users who subclass LogController via the logController option can override it. Added in the refactor commit after a maintainer asked for logController instead of reply.log.",
+      "sig": [
+        "—",
+        "headStreamError (error, request, reply, metadata)"
+      ],
+      "facts": [
+        [
+          "level",
+          "error"
+        ],
+        [
+          "message",
+          "'Error on Stream found for HEAD route'"
+        ],
+        [
+          "metadata",
+          "accepted, unused (same as streamError)"
+        ],
+        [
+          "sibling",
+          "streamError (log-controller.js:98)"
+        ]
+      ],
+      "factsTitle": "Contract",
+      "code": "c-headStreamError",
+      "codeTitle": "streamError (sibling) and headStreamError"
+    },
+    {
+      "id": "isLogDisabled",
+      "lane": "runtime",
+      "row": 2.0,
+      "type": "Method",
+      "name": "isLogDisabled",
+      "sub": "log-controller.js · LogController",
+      "kind": "unchanged",
+      "file": "lib/log-controller.js",
+      "line": 32,
+      "bullets": [
+        "Reads disableRequestLogging",
+        "Boolean or per-request function"
+      ],
+      "summary": "Shared guard used by every error-logging method. Returns disableRequestLogging, or calls it with the request when it is a function.",
+      "code": "c-isLogDisabled",
+      "codeTitle": "Excerpt"
+    },
+    {
+      "id": "typesLC",
+      "lane": "log",
+      "row": 1.0,
+      "type": "Type",
+      "name": "LogController (d.ts)",
+      "sub": "types/logger.d.ts",
+      "kind": "modified",
+      "add": 1,
+      "del": 0,
+      "file": "types/logger.d.ts",
+      "line": 119,
+      "bullets": [
+        "Declares headStreamError",
+        "Same signature as streamError"
+      ],
+      "summary": "The TypeScript declaration of LogController gains headStreamError with the shared error signature.",
+      "sig": [
+        "—",
+        "headStreamError (error: Error, request: FastifyRequest, reply: FastifyReply, metadata?: Record<string, unknown>): void"
+      ],
+      "code": "c-types",
+      "codeTitle": "Excerpt"
+    },
+    {
+      "id": "specLogger",
+      "lane": "log",
+      "row": 3.0,
+      "type": "Spec",
+      "name": "logger.test.js",
+      "sub": "test/internals/logger.test.js",
+      "kind": "modified",
+      "add": 41,
+      "del": 0,
+      "file": "test/internals/logger.test.js",
+      "line": 375,
+      "bullets": [
+        "3 unit tests for headStreamError",
+        "Disabled (bool, fn) and enabled"
+      ],
+      "summary": "Three unit tests mirroring the existing serializerError trio: no log when disableRequestLogging is true or a function returning true; logs the HEAD message with the error when enabled.",
+      "code": "c-specLogger",
+      "codeTitle": "Excerpt"
+    },
+    {
+      "id": "specTypes",
+      "lane": "log",
+      "row": 0.0,
+      "type": "Type test",
+      "name": "logger.tst.ts",
+      "sub": "test/types/logger.tst.ts",
+      "kind": "modified",
+      "add": 1,
+      "del": 0,
+      "file": "test/types/logger.tst.ts",
+      "line": 279,
+      "bullets": [
+        "Type test for headStreamError",
+        "Callable with (Error, req, reply)"
+      ],
+      "summary": "One tstyche assertion that headStreamError is callable with an Error, a FastifyRequest and a FastifyReply.",
+      "code": "c-specTypes",
+      "codeTitle": "Excerpt"
+    },
+    {
+      "id": "onSendEnd",
+      "lane": "reply",
+      "row": 5.0,
+      "type": "Function",
+      "name": "onSendEnd",
+      "sub": "reply.js",
+      "kind": "behavior",
+      "file": "lib/reply.js",
+      "line": 627,
+      "bullets": [
+        "Unwraps Response: status, headers, body",
+        "Now receives a body-less Response on HEAD"
+      ],
+      "summary": "Unchanged code, but for HEAD it now receives either the original Response (null/used/locked body) or the hook's body-less copy. It applies payload.status and every header, throws FST_ERR_REP_RESPONSE_BODY_CONSUMED for a used body, then treats the null body as an empty reply; for HEAD it does not overwrite content-length (reply.js:657-658).",
+      "facts": [
+        [
+          "status",
+          "reply.code(payload.status)"
+        ],
+        [
+          "headers",
+          "for..of payload.headers → reply.header"
+        ],
+        [
+          "used body",
+          "FST_ERR_REP_RESPONSE_BODY_CONSUMED"
+        ],
+        [
+          "HEAD + null body",
+          "content-length not overwritten"
+        ]
+      ],
+      "factsTitle": "Response handling",
+      "code": "c-onSendEnd",
+      "codeTitle": "Response unwrap and null-body branch"
+    },
+    {
+      "id": "sendWebStream",
+      "lane": "reply",
+      "row": 4.0,
+      "type": "Function",
+      "name": "sendWebStream",
+      "sub": "reply.js",
+      "kind": "unchanged",
+      "file": "lib/reply.js",
+      "line": 769,
+      "bullets": [
+        "Pipes a web stream body",
+        "Throws on a locked stream"
+      ],
+      "summary": "Reached on HEAD only through the pass-through of a locked body: throws FST_ERR_REP_READABLE_STREAM_LOCKED, which is the 500 the locked-body test asserts on both GET and HEAD.",
+      "code": "c-sendWebStream",
+      "codeTitle": "Excerpt"
+    },
+    {
+      "id": "webResponse",
+      "lane": "runtime",
+      "row": 6.0,
+      "type": "WHATWG class",
+      "name": "Response",
+      "sub": "global (undici)",
+      "kind": "context",
+      "layer": "Node",
+      "bullets": [
+        "new Response(null, {status, headers})",
+        "Headers copy keeps set-cookie ×N"
+      ],
+      "summary": "The hook builds a body-less Response from the original's status and headers. Verified with node -e on Node 24: the copy keeps multiple set-cookie values and a user-set content-length, drops statusText, and the constructor only accepts status 200-599.",
+      "facts": [
+        [
+          "status range",
+          "200-599, else RangeError"
+        ],
+        [
+          "statusText",
+          "not copied (onSendEnd ignores it)"
+        ]
+      ],
+      "factsTitle": "Runtime facts"
+    },
+    {
+      "id": "rsCancel",
+      "lane": "runtime",
+      "row": 7.0,
+      "type": "WHATWG method",
+      "name": "ReadableStream#cancel",
+      "sub": "global (undici)",
+      "kind": "context",
+      "layer": "Node",
+      "bullets": [
+        "Cancels the unread GET body",
+        "Rejection is logged, not thrown"
+      ],
+      "summary": "Called on payload (web stream branch) and payload.body (Response branch) with the reason 'Stream cancelled by HEAD route'; a rejection goes to headStreamError."
+    },
+    {
+      "id": "byteLength",
+      "lane": "runtime",
+      "row": 8.0,
+      "type": "Node API",
+      "name": "Buffer.byteLength",
+      "sub": "node:buffer",
+      "kind": "context",
+      "layer": "Node",
+      "bullets": [
+        "Where #7113 crashed",
+        "No longer reached by a Response"
+      ],
+      "summary": "The fallback branch sizes string/Buffer payloads. A Response reached it before the fix and threw ERR_INVALID_ARG_TYPE, which surfaced as the 500."
+    },
+    {
+      "id": "replyLog",
+      "lane": "runtime",
+      "row": 3.0,
+      "type": "Logger",
+      "name": "reply.log",
+      "sub": "pino child logger",
+      "kind": "context",
+      "layer": "Logger",
+      "bullets": [
+        "Per-request child logger",
+        "Now called only via LogController"
+      ],
+      "summary": "Before the PR the hook called reply.log.error directly; after it, only LogController#headStreamError writes to it."
+    },
+    {
+      "id": "optDisable",
+      "lane": "runtime",
+      "row": 1.0,
+      "type": "Server option",
+      "name": "disableRequestLogging",
+      "sub": "server options",
+      "kind": "context",
+      "layer": "Options",
+      "bullets": [
+        "Boolean or (req) => boolean",
+        "Now also silences HEAD stream errors"
+      ],
+      "summary": "The option isLogDisabled reads. Because headStreamError is guarded, HEAD stream-error lines are now suppressed when this is true — before the PR they were logged unconditionally."
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "from": "routeHead",
+      "to": "parseHead",
+      "rel": "call",
+      "kind": "unchanged",
+      "label": "parseHeadOnSendHandlers(…)"
+    },
+    {
+      "id": "e2",
+      "from": "parseHead",
+      "to": "headOnSend",
+      "rel": "use",
+      "kind": "unchanged",
+      "label": "appended last in onSend"
+    },
+    {
+      "id": "e3",
+      "from": "headOnSend",
+      "to": "headStreamError",
+      "rel": "call",
+      "kind": "added",
+      "label": "headStreamError(err, req, reply)",
+      "detail": "All three stream-error paths (node stream 'error', web stream cancel rejection, Response body cancel rejection) now call the LogController via reply.server[kLogController], the same access every other lib/ call site uses.",
+      "code": "c-headOnSend"
+    },
+    {
+      "id": "e4",
+      "from": "headOnSend",
+      "to": "replyLog",
+      "rel": "call",
+      "kind": "removed",
+      "label": "reply.log.error(...)",
+      "detail": "The base logged stream errors inline with reply.log.error({ err }, 'Error on Stream found for HEAD route'), with no disableRequestLogging guard."
+    },
+    {
+      "id": "e5",
+      "from": "headStreamError",
+      "to": "isLogDisabled",
+      "rel": "call",
+      "kind": "added",
+      "label": "isLogDisabled(request)",
+      "detail": "Early return when request logging is disabled — the behaviour change for the two pre-existing stream branches.",
+      "code": "c-headStreamError"
+    },
+    {
+      "id": "e6",
+      "from": "headStreamError",
+      "to": "replyLog",
+      "rel": "call",
+      "kind": "added",
+      "label": "reply.log.error({ err })",
+      "detail": "Same level and message as the removed inline call.",
+      "code": "c-headStreamError"
+    },
+    {
+      "id": "e7",
+      "from": "isLogDisabled",
+      "to": "optDisable",
+      "rel": "read",
+      "kind": "unchanged",
+      "label": "this.disableRequestLogging"
+    },
+    {
+      "id": "e8",
+      "from": "headOnSend",
+      "to": "rsCancel",
+      "rel": "call",
+      "kind": "added",
+      "label": "body.cancel('Stream cancelled…')",
+      "detail": "New call for the Response branch (line 40); the web-stream branch's payload.cancel at line 25 is unchanged.",
+      "code": "c-respBranch"
+    },
+    {
+      "id": "e9",
+      "from": "headOnSend",
+      "to": "webResponse",
+      "rel": "call",
+      "kind": "added",
+      "label": "new Response(null, {…})",
+      "detail": "Builds the body-less replacement passed to done(); the original's status and Headers object are copied.",
+      "code": "c-respBranch"
+    },
+    {
+      "id": "e10",
+      "from": "headOnSend",
+      "to": "onSendEnd",
+      "rel": "call",
+      "kind": "modified",
+      "label": "done(null, Response) → onSendEnd",
+      "detail": "The hook used to finish with done(null, null) for every handled payload; for a Response it now hands a Response (original or body-less copy) on to onSendEnd, which unwraps it exactly as for GET.",
+      "code": "c-onSendEnd"
+    },
+    {
+      "id": "e11",
+      "from": "onSendEnd",
+      "to": "sendWebStream",
+      "rel": "call",
+      "kind": "impacted",
+      "label": "sendWebStream(payload, …)",
+      "detail": "Reached on HEAD only when a locked body is passed through; throws FST_ERR_REP_READABLE_STREAM_LOCKED.",
+      "code": "c-sendWebStream"
+    },
+    {
+      "id": "e12",
+      "from": "headOnSend",
+      "to": "byteLength",
+      "rel": "call",
+      "kind": "unchanged",
+      "label": "Buffer.byteLength(payload)"
+    },
+    {
+      "id": "e13",
+      "from": "typesLC",
+      "to": "headStreamError",
+      "rel": "use",
+      "kind": "added",
+      "label": "declares headStreamError",
+      "detail": "The d.ts adds headStreamError(err, request, reply) to the LogController interface so TypeScript overrides type-check."
+    },
+    {
+      "id": "e14",
+      "from": "specRoute7",
+      "to": "headOnSend",
+      "rel": "test",
+      "kind": "added",
+      "label": "4 HEAD + Response tests"
+    },
+    {
+      "id": "e15",
+      "from": "specLogger",
+      "to": "headStreamError",
+      "rel": "test",
+      "kind": "added",
+      "label": "3 unit tests"
+    },
+    {
+      "id": "e16",
+      "from": "specTypes",
+      "to": "typesLC",
+      "rel": "test",
+      "kind": "added",
+      "label": "toBeCallableWith"
+    }
+  ],
+  "findings": [
+    {
+      "id": "F1",
+      "sev": "low",
+      "node": "specRoute7",
+      "alsoNodes": [
+        "headOnSend"
+      ],
+      "title": "Null-body and used-body pass-through, and header parity, untested",
+      "text": "Of the pass-through condition body === null || bodyUsed || body.locked (head-route.js:36), only the locked arm is tested (:148); the other two could be deleted without a failure. No new test asserts content-length or a multi-valued header on HEAD. Add a null-body 204 case, a consumed-body case (500 FST_ERR_REP_RESPONSE_BODY_CONSUMED on both), and extend :99 with content-length and two set-cookie values."
+    },
+    {
+      "id": "F2",
+      "sev": "low",
+      "node": "headStreamError",
+      "alsoNodes": [
+        "typesLC",
+        "headOnSend"
+      ],
+      "title": "New public LogController method and a logging behaviour change, not in the PR body",
+      "text": "The refactor commit adds an overridable LogController#headStreamError (types + docs) and routes the two pre-existing HEAD stream branches through it, so their error line is now suppressed under disableRequestLogging. Consistent with the controller's convention, but the PR body still describes only head-route.js; add a line so release notes and the 5.x backport (the issue says 5.x is affected) account for it."
+    },
+    {
+      "id": "F3",
+      "sev": "nit",
+      "node": "headOnSend",
+      "title": "Third copy of the [object Response] check, different spelling",
+      "text": "head-route.js:33 uses Object.prototype.toString.call; reply.js:187 and :627 use the module alias toString. Author's call: leave it (the PR mirrors reply.js on purpose) or a follow-up isWebResponse helper used by all three."
+    }
+  ],
+  "order": [
+    "headOnSend",
+    "headStreamError",
+    "typesLC",
+    "specRoute7",
+    "specLogger",
+    "specTypes",
+    "onSendEnd"
+  ],
+  "code": {
+    "c-routeHead": [
+      "@ route.js:453",
+      "       // we must place it after the `this.after`",
+      " ",
+      "       if (shouldExposeHead && isGetRoute && !isHeadRoute && !hasHEADHandler) {",
+      "         const onSendHandlers = parseHeadOnSendHandlers(headOpts.onSend)",
+      "         prepareRoute.call(this, { method: 'HEAD', url: path, options: { ...headOpts, onSend: onSendHandlers }, isFastify: true })",
+      "       }"
+    ],
+    "c-parseHead": [
+      "@ head-route.js:54",
+      " function parseHeadOnSendHandlers (onSendHandlers) {",
+      "   if (onSendHandlers == null) return headRouteOnSendHandler",
+      "   return Array.isArray(onSendHandlers)",
+      "     ? [...onSendHandlers, headRouteOnSendHandler]",
+      "     : [onSendHandlers, headRouteOnSendHandler]",
+      " }"
+    ],
+    "c-headOnSend": [
+      "@ head-route.js:1",
+      " 'use strict'",
+      "+",
+      "+const { kLogController } = require('./symbols.js')",
+      "+",
+      " function headRouteOnSendHandler (req, reply, payload, done) {",
+      "   // If payload is undefined",
+      "   if (payload === undefined) {",
+      "     reply.header('content-length', '0')",
+      "     done(null, null)",
+      "     return",
+      "   }",
+      " ",
+      "   // node:stream",
+      "   if (typeof payload.resume === 'function') {",
+      "     payload.on('error', (err) => {",
+      "-      reply.log.error({ err }, 'Error on Stream found for HEAD route')",
+      "+      reply.server[kLogController].headStreamError(err, req, reply)",
+      "     })",
+      "     payload.resume()",
+      "     done(null, null)",
+      "     return",
+      "   }",
+      " ",
+      "   // node:stream/web",
+      "   if (typeof payload.getReader === 'function') {",
+      "     payload.cancel('Stream cancelled by HEAD route').catch((err) => {",
+      "-      reply.log.error({ err }, 'Error on Stream found for HEAD route')",
+      "+      reply.server[kLogController].headStreamError(err, req, reply)",
+      "     })",
+      "     done(null, null)",
+      "     return",
+      "   }",
+      " ",
+      "+  // web Response: mirror GET status/headers, drop the body",
+      "+  if (typeof payload === 'object' && Object.prototype.toString.call(payload) === '[object Response]') {",
+      "+    // No body, or a body GET could not send either (consumed/locked):",
+      "+    // pass through so onSendEnd behaves exactly as for GET",
+      "+    if (payload.body === null || payload.bodyUsed || payload.body.locked) {",
+      "+      done(null, payload)",
+      "+      return",
+      "+    }",
+      "+    payload.body.cancel('Stream cancelled by HEAD route').catch((err) => {",
+      "+      reply.server[kLogController].headStreamError(err, req, reply)",
+      "+    })",
+      "+    done(null, new Response(null, { status: payload.status, headers: payload.headers }))",
+      "+    return",
+      "+  }",
+      "+",
+      "   const size = '' + Buffer.byteLength(payload)",
+      " ",
+      "   reply.header('content-length', size)",
+      " ",
+      "   done(null, null)",
+      " }"
+    ],
+    "c-respBranch": [
+      "@ head-route.js:32",
+      "+  // web Response: mirror GET status/headers, drop the body",
+      "+  if (typeof payload === 'object' && Object.prototype.toString.call(payload) === '[object Response]') {",
+      "+    // No body, or a body GET could not send either (consumed/locked):",
+      "+    // pass through so onSendEnd behaves exactly as for GET",
+      "+    if (payload.body === null || payload.bodyUsed || payload.body.locked) {",
+      "+      done(null, payload)",
+      "+      return",
+      "+    }",
+      "+    payload.body.cancel('Stream cancelled by HEAD route').catch((err) => {",
+      "+      reply.server[kLogController].headStreamError(err, req, reply)",
+      "+    })",
+      "+    done(null, new Response(null, { status: payload.status, headers: payload.headers }))",
+      "+    return",
+      "+  }"
+    ],
+    "c-headStreamError": [
+      "@ log-controller.js:98",
+      "   streamError (error, request, reply, metadata) {",
+      "     if (this.isLogDisabled(request)) { return }",
+      " ",
+      "     if (error.code === 'ERR_STREAM_PREMATURE_CLOSE') {",
+      "       reply.log.info({ res: reply }, 'stream closed prematurely')",
+      "     } else {",
+      "       reply.log.warn({ err: error }, 'response terminated with an error with headers already sent')",
+      "     }",
+      "   }",
+      " ",
+      "+  /**",
+      "+   * Logs an error emitted by a response stream on a HEAD route.",
+      "+   *",
+      "+   * @param {Error} error         The stream error.",
+      "+   * @param {object} request      Fastify request object.",
+      "+   * @param {object} reply        Fastify reply object.",
+      "+   * @param {object} [metadata]   Extra contextual data (unused).",
+      "+   */",
+      "+  headStreamError (error, request, reply, metadata) {",
+      "+    if (this.isLogDisabled(request)) { return }",
+      "+",
+      "+    reply.log.error({ err: error }, 'Error on Stream found for HEAD route')",
+      "+  }"
+    ],
+    "c-isLogDisabled": [
+      "@ log-controller.js:32",
+      "   isLogDisabled (req) {",
+      "     return this.isDisableRequestLoggingFunction",
+      "       ? this.disableRequestLogging(req)",
+      "       : this.disableRequestLogging",
+      "   }"
+    ],
+    "c-onSendEnd": [
+      "@ reply.js:624",
+      "   // since Response contain status code, headers and body,",
+      "   // we need to update the status, add the headers and use it's body as payload",
+      "   // before continuing",
+      "   if (payload != null && typeof payload === 'object' && toString.call(payload) === '[object Response]') {",
+      "     // https://developer.mozilla.org/en-US/docs/Web/API/Response/status",
+      "     if (typeof payload.status === 'number') {",
+      "       reply.code(payload.status)",
+      "     }",
+      " ",
+      "     // https://developer.mozilla.org/en-US/docs/Web/API/Response/headers",
+      "     if (typeof payload.headers === 'object' && typeof payload.headers.forEach === 'function') {",
+      "       for (const [headerName, headerValue] of payload.headers) {",
+      "         reply.header(headerName, headerValue)",
+      "       }",
+      "     }",
+      " ",
+      "     // https://developer.mozilla.org/en-US/docs/Web/API/Response/body",
+      "     if (payload.body !== null) {",
+      "       if (payload.bodyUsed) {",
+      "         throw new FST_ERR_REP_RESPONSE_BODY_CONSUMED()",
+      "       }",
+      "     }",
+      "     // Keep going, body is either null or ReadableStream",
+      "     payload = payload.body",
+      "   }",
+      "   const statusCode = res.statusCode",
+      " ",
+      "   if (payload === undefined || payload === null) {",
+      "     // according to https://datatracker.ietf.org/doc/html/rfc7230#section-3.3.2",
+      "     // we cannot send a content-length for 304 and 204, and all status code",
+      "     // < 200",
+      "     // A sender MUST NOT send a Content-Length header field in any message",
+      "     // that contains a Transfer-Encoding header field.",
+      "     // For HEAD we don't overwrite the `content-length`",
+      "     if (statusCode >= 200 && statusCode !== 204 && statusCode !== 304 && req.method !== 'HEAD' && reply[kReplyTrailers] === null) {",
+      "       reply[kReplyHeaders]['content-length'] = '0'",
+      "     }",
+      " ",
+      "     safeWriteHead(reply, statusCode)",
+      "     sendTrailer(payload, res, reply)",
+      "     return",
+      "   }"
+    ],
+    "c-sendWebStream": [
+      "@ reply.js:769",
+      " function sendWebStream (payload, res, reply) {",
+      "   if (payload.locked) {",
+      "     throw new FST_ERR_REP_READABLE_STREAM_LOCKED()",
+      "   }"
+    ],
+    "c-types": [
+      "@ logger.d.ts:116",
+      "   ): void",
+      "   defaultErrorLog (error: Error, request: FastifyRequest, reply: FastifyReply, metadata?: Record<string, unknown>): void",
+      "   streamError (error: Error, request: FastifyRequest, reply: FastifyReply, metadata?: Record<string, unknown>): void",
+      "+  headStreamError (error: Error, request: FastifyRequest, reply: FastifyReply, metadata?: Record<string, unknown>): void",
+      "   routeNotFound (request: FastifyRequest, reply: FastifyReply, metadata?: Record<string, unknown>): void"
+    ],
+    "c-specRoute7": [
+      "@ route.7.test.js:99",
+      "+test('HEAD route mirrors status and headers of a web Response returned by GET', async t => {",
+      "+  t.plan(6)",
+      "+",
+      "+  const fastify = Fastify()",
+      "+",
+      "+  fastify.get('/web-response', (req, reply) => {",
+      "+    reply.send(new Response('hello world', {",
+      "+      status: 201,",
+      "+      headers: { 'x-demo': 'yes', 'content-type': 'text/plain' }",
+      "+    }))",
+      "+  })",
+      "+",
+      "+  const getRes = await fastify.inject({ method: 'GET', url: '/web-response' })",
+      "+  t.assert.strictEqual(getRes.statusCode, 201)",
+      "+  t.assert.strictEqual(getRes.body, 'hello world')",
+      "+",
+      "+  const headRes = await fastify.inject({ method: 'HEAD', url: '/web-response' })",
+      "+  t.assert.strictEqual(headRes.statusCode, 201)",
+      "+  t.assert.strictEqual(headRes.headers['x-demo'], 'yes')",
+      "+  t.assert.strictEqual(headRes.headers['content-type'], 'text/plain')",
+      "+  t.assert.strictEqual(headRes.body, '')",
+      "+})",
+      "@ route.7.test.js:148",
+      "+test('HEAD route keeps GET error when web Response body is locked', async t => {",
+      "+  t.plan(3)",
+      "+",
+      "+  const fastify = Fastify()",
+      "+",
+      "+  fastify.get('/web-response-locked', (req, reply) => {",
+      "+    const body = new ReadableStream({",
+      "+      start (controller) {",
+      "+        controller.enqueue('x')",
+      "+      }",
+      "+    })",
+      "+    const response = new Response(body)",
+      "+    body.getReader()",
+      "+    return response",
+      "+  })",
+      "+",
+      "+  const getRes = await fastify.inject({ method: 'GET', url: '/web-response-locked' })",
+      "+  t.assert.strictEqual(getRes.statusCode, 500)",
+      "+  t.assert.strictEqual(getRes.json().code, 'FST_ERR_REP_READABLE_STREAM_LOCKED')",
+      "+",
+      "+  const headRes = await fastify.inject({ method: 'HEAD', url: '/web-response-locked' })",
+      "+  t.assert.strictEqual(headRes.statusCode, 500)",
+      "+})"
+    ],
+    "c-specLogger": [
+      "@ logger.test.js:375",
+      "+test('headStreamError should not log when logging is disabled (boolean)', t => {",
+      "+  t.plan(1)",
+      "+  const logController = new LogController({ disableRequestLogging: true })",
+      "+  const log = {",
+      "+    error: () => { t.assert.fail('error should not be called') }",
+      "+  }",
+      "+  const request = {}",
+      "+  const reply = { request, log }",
+      "+  logController.headStreamError(new Error('stream failed'), request, reply)",
+      "+  t.assert.ok(true, 'logger was not called')",
+      "+})",
+      "+",
+      "+test('headStreamError should not log when logging is disabled (function)', t => {",
+      "+  t.plan(1)",
+      "+  const logController = new LogController({ disableRequestLogging: () => true })",
+      "+  const log = {",
+      "+    error: () => { t.assert.fail('error should not be called') }",
+      "+  }",
+      "+  const request = {}",
+      "+  const reply = { request, log }",
+      "+  logController.headStreamError(new Error('stream failed'), request, reply)",
+      "+  t.assert.ok(true, 'logger was not called')",
+      "+})",
+      "+",
+      "+test('headStreamError should log error with message', t => {",
+      "+  t.plan(2)",
+      "+  const logController = new LogController({ disableRequestLogging: false })",
+      "+  const err = new Error('stream failed')",
+      "+  const request = {}",
+      "+  const reply = {",
+      "+    request,",
+      "+    log: {",
+      "+      error: (data, msg) => {",
+      "+        t.assert.strictEqual(msg, 'Error on Stream found for HEAD route')",
+      "+        t.assert.strictEqual(data.err, err)",
+      "+      }",
+      "+    }",
+      "+  }"
+    ],
+    "c-specTypes": [
+      "@ logger.tst.ts:276",
+      " expect(logController.requestCompleted).type.toBeCallableWith(undefined, {} as FastifyRequest, {} as FastifyReply)",
+      " expect(logController.requestCompleted).type.toBeCallableWith(null, {} as FastifyRequest, {} as FastifyReply)",
+      " expect(logController.requestCompleted).type.toBeCallableWith(new Error(), {} as FastifyRequest, {} as FastifyReply)",
+      "+expect(logController.headStreamError).type.toBeCallableWith(new Error(), {} as FastifyRequest, {} as FastifyReply)"
+    ]
+  }
+}

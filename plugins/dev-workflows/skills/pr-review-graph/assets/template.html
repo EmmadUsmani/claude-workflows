@@ -1,0 +1,888 @@
+<meta charset="utf-8">
+<title>__TITLE__</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: compact PR header, then a pannable graph of the PR's code units in left-to-right lanes, under an overlay review drawer, with an in-browser full view. Single dark look. Everything below the style is driven by the JSON in #review-data (scripts/build.rb). */
+:root {
+  color-scheme: dark;
+  --bg: #0F1115;
+  --canvas: #0B0D10;
+  --dot: #262B34;
+  --head: #12151A;
+  --panel: #13161B;
+  --surface: #181C22;
+  --surface-2: #15181E;
+  --hover: #1C2129;
+  --line: #252A33;
+  --line-2: #232831;
+  --text: #E6E8EC;
+  --text-2: #C9CED6;
+  --text-3: #B7BDC7;
+  --muted: #9AA1AD;
+  --faint: #8B93A1;
+  --accent: #8AB4F8;
+  --accent-soft: #1A2233;
+  --code-bg: #0E1014;
+  --add-bg: #11281C; --add-fg: #BDEDD3; --add: #5FD39B;
+  --del-bg: #2B1616; --del-fg: #F5C4BE; --del: #F5877C;
+  --hunk-bg: #151B26; --hunk-fg: #8FA6C8;
+  --sev-high: #F5877C; --sev-high-bg: #3A1C1A;
+  --sev-med: #F0A35E; --sev-med-bg: #3A2614;
+  --sev-low: #8FB4EA; --sev-low-bg: #18263A;
+  --sev-nit: #A0A7B4; --sev-nit-bg: #232831;
+  --sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+}
+html, body { height: 100%; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--sans); }
+a { color: var(--accent); text-decoration: none; }
+a:hover { color: #B3CDFB; text-decoration: underline; }
+button { font: inherit; color: inherit; }
+button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+code, .mono { font-family: var(--mono); }
+
+.app { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+header.pr { flex: none; background: var(--head); border-bottom: 1px solid var(--line-2); }
+.pr-bar { display: flex; align-items: center; gap: 6px 12px; min-height: 42px; padding: 4px max(16px, env(safe-area-inset-right, 0px)) 4px max(16px, env(safe-area-inset-left, 0px)); flex-wrap: wrap; }
+.pr-id { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1 1 420px; }
+.repo { font-family: var(--mono); font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+.pr-id h1 { margin: 0; font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.pr-id h1 .num { color: var(--faint); font-weight: 400; }
+.pr-id h1 a.pr-link { color: var(--text); }
+.pr-id h1 a.pr-link:hover { color: #B3CDFB; text-decoration: underline; }
+.pill-state { flex: none; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: #173325; color: #7BDCAB; }
+.pill-state.merged { background: #2A2148; color: #BCA8FF; }
+.pill-state.closed { background: #3A1C1A; color: #F5877C; }
+.merge-line { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.merge-line code { color: var(--text-2); background: #1C2028; padding: 1px 5px; border-radius: 4px; font-size: 11px; }
+nav.tabs { display: flex; gap: 2px; align-items: center; }
+nav.tabs a, nav.tabs span { padding: 5px 9px; border-radius: 6px; font-size: 12.5px; color: var(--muted); display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+nav.tabs a:hover { color: var(--text); background: var(--hover); text-decoration: none; }
+nav.tabs .count { color: var(--faint); }
+nav.tabs [aria-current] { color: var(--text); font-weight: 600; background: var(--accent-soft); box-shadow: inset 0 -2px 0 var(--accent); }
+.pr-meta { display: flex; align-items: center; gap: 14px; font-size: 12px; white-space: nowrap; }
+.pr-meta .adds { font-family: var(--mono); }
+.plus { color: var(--add); } .minus { color: var(--del); }
+.progress { display: flex; align-items: center; gap: 8px; color: var(--muted); }
+.bar { width: 90px; height: 5px; background: var(--line-2); border-radius: 3px; overflow: hidden; }
+.bar > div { height: 100%; background: var(--accent); border-radius: 3px; transition: width .3s; }
+@media (max-width: 1100px) { .merge-line { display: none; } }
+@media (max-width: 700px) { .pr-meta .adds, nav.tabs a { display: none; } }
+
+.main { flex: 1; min-height: 0; position: relative; overflow: hidden; overflow: clip; --drawer-w: min(720px, 100%); --dw: 0px; }
+.main.drawer-open { --dw: var(--drawer-w); }
+.app.full header.pr { display: none; }
+.app.full .main { position: fixed; inset: 0; z-index: 40; }
+section.canvas { position: absolute; inset: 0; overflow: hidden; }
+.viewport { position: absolute; inset: 0; touch-action: none; user-select: none; cursor: grab; background-color: var(--canvas); background-image: radial-gradient(circle, var(--dot) 1px, transparent 1.3px); }
+.viewport.dragging { cursor: grabbing; }
+.world { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-origin: 0 0; }
+.world.animate { transition: transform .35s ease; }
+svg.edges { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
+svg.edges path { transition: opacity .2s; }
+.lane-head { position: absolute; width: 232px; font-size: 10.5px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; color: #6E7684; border-top: 1px solid #262B34; padding-top: 8px; display: flex; justify-content: space-between; gap: 8px; }
+.lane-head span:last-child { font-family: var(--mono); font-weight: 500; letter-spacing: 0; text-transform: none; color: #59606C; }
+.boundary { position: absolute; width: 1px; background: repeating-linear-gradient(to bottom, #3B5F94 0 6px, transparent 6px 12px); opacity: .55; }
+.boundary-label { position: absolute; font-size: 10.5px; color: #6F8FC0; white-space: nowrap; transform: translateX(-50%); background: var(--canvas); padding: 2px 6px; border-radius: 4px; font-family: var(--mono); }
+
+.gnode { position: absolute; width: 232px; height: 120px; box-sizing: border-box; padding: 9px 11px; display: flex; flex-direction: column; gap: 4px; text-align: left; border-radius: 10px; border-width: 1.5px; border-style: solid; cursor: pointer; overflow: hidden; transition: opacity .2s, box-shadow .15s, border-color .15s; }
+.gnode:hover { outline: 2px solid rgba(230,232,236,0.16); outline-offset: 3px; }
+.gnode:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.gnode .row1 { display: flex; align-items: center; justify-content: space-between; gap: 6px; width: 100%; min-width: 0; }
+.chip { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; padding: 2px 7px; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.gnode .stats { display: inline-flex; align-items: center; gap: 5px; font-family: var(--mono); font-size: 11px; flex: none; }
+.fpill { font-family: var(--mono); font-size: 10px; font-weight: 600; padding: 1px 5px; border-radius: 4px; line-height: 1.35; }
+.gnode .sub { display: block; font-size: 10.5px; color: var(--muted); font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gnode .name { display: block; font-family: var(--mono); font-size: 14.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gnode .bul { display: block; font-size: 11.3px; line-height: 1.35; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gnode .thumb-dot { position: absolute; right: 9px; bottom: 8px; width: 16px; height: 12px; border-radius: 2px; border: 1.4px solid #6E7684; opacity: .85; }
+.gnode .thumb-dot::after { content: ""; position: absolute; left: 3px; bottom: 2px; width: 8px; height: 4px; border-left: 1.4px solid #6E7684; border-bottom: 1.4px solid #6E7684; transform: skewX(-20deg); }
+.gnode.reviewed { filter: saturate(.15); }
+.gnode.untouched .name { color: #B7BDC7 !important; font-weight: 500; }
+.gnode.untouched .bul { color: #8B93A1; }
+.gnode.untouched:hover, .gnode.untouched:focus-visible { opacity: 1 !important; }
+.gnode.reviewed:hover, .gnode.reviewed:focus-visible { opacity: .95 !important; filter: none; }
+.rv-badge { position: absolute; width: 26px; height: 26px; margin: -13px 0 0 -13px; border-radius: 50%; background: #8AB4F8; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 3px #0B0D10, 0 4px 12px rgba(0,0,0,.55); transform: scale(var(--bs, 1)); pointer-events: none; transition: opacity .2s; }
+.rv-badge svg, .rv-mini svg { fill: none; stroke: #0F1115; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+.rv-mini { width: 13px; height: 13px; border-radius: 50%; background: #8AB4F8; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.elabel { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; font-size: 10.8px; font-weight: 500; line-height: 1; padding: 5px 8px; border-radius: 999px; background: var(--bg); border: 1px solid #2E333D; cursor: pointer; transition: opacity .2s; font-family: var(--sans); }
+.elabel:hover { filter: brightness(1.25); }
+
+.toolbar { position: absolute; top: max(14px, env(safe-area-inset-top, 0px)); left: max(14px, env(safe-area-inset-left, 0px)); right: calc(14px + var(--dw)); transition: right .22s ease; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; pointer-events: none; }
+.toolbar > * { pointer-events: auto; }
+.toolbar > .spacer { flex: 1; pointer-events: none; }
+.seg { display: flex; gap: 2px; padding: 3px; background: var(--surface-2); border: 1px solid #262A33; border-radius: 8px; box-shadow: 0 6px 18px rgba(0,0,0,.35); flex-wrap: wrap; }
+.seg button { border: none; border-radius: 6px; padding: 7px 11px; font-size: 12.5px; font-weight: 500; cursor: pointer; background: transparent; color: #A0A7B4; display: flex; align-items: center; gap: 6px; }
+.seg button[aria-pressed="true"] { background: #2A303B; color: #F2F3F5; }
+.seg button:hover { color: var(--text); }
+.seg .sw { width: 18px; height: 6px; }
+.tool-btn { display: flex; align-items: center; gap: 7px; padding: 8px 11px; font-size: 12.5px; background: var(--surface-2); border: 1px solid #262A33; border-radius: 8px; cursor: pointer; color: var(--text-2); box-shadow: 0 6px 18px rgba(0,0,0,.35); }
+.tool-btn:hover { background: #232833; }
+.tool-btn.panel-btn { color: var(--text); }
+.tool-btn.panel-btn[aria-pressed="true"] { background: var(--accent-soft); border-color: #2E3D5C; color: var(--accent); }
+.tool-btn .count-pill { font-family: var(--mono); font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 999px; background: var(--sev-med-bg); color: var(--sev-med); }
+.box { width: 14px; height: 14px; border-radius: 3px; border: 1.5px solid #5A6170; display: inline-flex; align-items: center; justify-content: center; }
+.tool-btn[aria-pressed="true"] .box { background: var(--accent); border-color: var(--accent); }
+.tool-btn[aria-pressed="true"] .box::after { content: ""; width: 7px; height: 4px; border-left: 2px solid #0F1115; border-bottom: 2px solid #0F1115; transform: rotate(-45deg) translate(1px, -1px); }
+.mode-note { font-size: 12px; color: var(--text-2); background: var(--accent-soft); border: 1px solid #2E3D5C; padding: 7px 11px; border-radius: 8px; max-width: 520px; }
+kbd { font-family: var(--mono); font-size: 10.5px; padding: 0 4px; border-radius: 3px; border: 1px solid #3A404B; color: var(--text-2); background: #1C2028; }
+
+.legend { position: absolute; left: 14px; bottom: max(14px, env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 7px; padding: 12px 14px; background: rgba(21,24,30,.95); border: 1px solid #262A33; border-radius: 10px; font-size: 11.5px; color: var(--text-3); box-shadow: 0 6px 18px rgba(0,0,0,.35); max-width: 430px; }
+.legend h4 { margin: 0; font-size: 10.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
+.legend .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 14px; }
+.legend .grid span { display: flex; align-items: center; gap: 7px; white-space: nowrap; }
+.sq { width: 12px; height: 12px; border-radius: 3px; border-width: 1.5px; border-style: solid; flex: none; }
+.main.drawer-open .legend { bottom: calc(max(14px, env(safe-area-inset-bottom, 0px)) + 56px); }
+.zoombar { position: absolute; right: calc(max(14px, env(safe-area-inset-right, 0px)) + var(--dw)); transition: right .22s ease; bottom: max(14px, env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; align-items: flex-end; gap: 8px; pointer-events: none; }
+.zoombar .hint { font-size: 11.5px; color: var(--faint); background: rgba(11,13,16,.85); padding: 4px 8px; border-radius: 6px; }
+.main.drawer-open .zoombar .hint { display: none; }
+.zoombar .seg { pointer-events: auto; align-items: center; }
+.zoombar .seg button { min-width: 34px; height: 32px; justify-content: center; padding: 0 9px; color: var(--text-2); }
+.zoombar .seg button:hover { background: #232833; }
+.zoombar .sep { width: 1px; height: 20px; background: #2C313A; margin: 0 3px; }
+
+aside.rail { position: absolute; top: 0; right: 0; bottom: 0; width: var(--drawer-w); z-index: 20; display: flex; flex-direction: column; background: var(--panel); border-left: 1px solid var(--line-2); box-shadow: -24px 0 48px rgba(0,0,0,.5); transform: translateX(104%); visibility: hidden; transition: transform .22s ease, visibility 0s linear .22s; }
+.main.drawer-open aside.rail { transform: none; visibility: visible; transition: transform .22s ease, visibility 0s; }
+.rail-top { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px max(18px, env(safe-area-inset-right, 0px)) 9px 24px; border-bottom: 1px solid var(--line-2); background: #15181E; }
+.rail-top .ttl { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rail-top .acts { display: flex; gap: 6px; flex: none; }
+.icon-btn { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; background: transparent; border: 1px solid #262A33; border-radius: 7px; cursor: pointer; font-size: 12px; color: var(--text-2); }
+.icon-btn:hover { background: var(--hover); }
+.rail-scroll { flex: 1; min-height: 0; overflow-y: auto; }
+.rail-inner { padding: 20px max(28px, env(safe-area-inset-right, 0px)) 44px 28px; display: flex; flex-direction: column; gap: 22px; }
+.eyebrow { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); margin: 0; }
+.rail p { margin: 0; font-size: 13.5px; line-height: 1.6; color: var(--text-2); text-wrap: pretty; }
+.rail h2 { margin: 0; font-size: 13px; font-weight: 600; color: var(--text); }
+.rail h3 { margin: 0; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
+.stack { display: flex; flex-direction: column; gap: 8px; }
+.stack-strip { display: flex; flex-wrap: wrap; gap: 4px; }
+.stack-strip a, .stack-strip span { font-family: var(--mono); font-size: 11.5px; padding: 4px 7px; border-radius: 5px; background: var(--surface); border: 1px solid var(--line); color: var(--muted); }
+.stack-strip .here { background: var(--accent-soft); border-color: #2E3D5C; color: var(--text); font-weight: 600; }
+.tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 11px 13px; display: flex; flex-direction: column; gap: 6px; }
+.tile .k { font-size: 12px; color: var(--muted); }
+.tile .v { display: flex; gap: 12px; font-family: var(--mono); font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; flex-wrap: wrap; }
+.row-btn { display: flex; gap: 11px; align-items: flex-start; text-align: left; padding: 10px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 9px; cursor: pointer; width: 100%; }
+.row-btn:hover { background: var(--hover); }
+.sev { flex: none; min-width: 30px; height: 22px; border-radius: 5px; font-family: var(--mono); font-size: 11.5px; font-weight: 600; display: flex; align-items: center; justify-content: center; padding: 0 5px; }
+.f-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.f-title { font-size: 13px; font-weight: 600; color: var(--text); }
+.f-target { font-family: var(--mono); font-size: 11.5px; }
+.f-text { font-size: 12.5px; line-height: 1.5; color: #AEB4BF; }
+.list { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
+.list button { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--surface-2); border: none; border-bottom: 1px solid #20242C; text-align: left; cursor: pointer; width: 100%; }
+.list button:last-child { border-bottom: none; }
+.list button:hover { background: var(--hover); }
+.list button.done .li-main { opacity: .5; }
+.glyph { flex: none; width: 20px; height: 20px; border-radius: 4px; font-family: var(--mono); font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center; }
+.li-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.li-main .q { font-family: var(--mono); font-size: 12.5px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.li-main .s { font-size: 11.5px; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.check { flex: none; width: 15px; height: 15px; }
+.back { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px 6px 6px; background: transparent; border: 1px solid #262A33; border-radius: 7px; cursor: pointer; font-size: 12.5px; color: var(--text-2); }
+.back:hover { background: var(--hover); }
+.nd-head { display: flex; flex-direction: column; gap: 8px; }
+.nd-name { margin: 2px 0 0; font-family: var(--mono); font-size: 21px; font-weight: 600; color: #F2F3F5; word-break: break-word; }
+.nd-file { font-family: var(--mono); font-size: 12px; word-break: break-all; }
+ul.changes { margin: 0; padding: 0 0 0 18px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; line-height: 1.5; color: #D3D7DE; }
+.kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 5px 12px; font-size: 12.5px; border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; background: var(--surface-2); }
+.kv dt { font-family: var(--mono); color: var(--accent); white-space: nowrap; }
+.kv dd { margin: 0; color: var(--text-2); line-height: 1.45; min-width: 0; }
+.sig { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; font-family: var(--mono); font-size: 12px; line-height: 1.55; }
+.sig div { display: flex; gap: 10px; padding: 7px 10px; }
+.sig .b { background: var(--del-bg); } .sig .b span:first-child { color: var(--del); }
+.sig .a { background: var(--add-bg); } .sig .a span:first-child { color: var(--add); }
+.sig span:first-child { flex: none; width: 44px; }
+.sig .b span:last-child { color: var(--del-fg); white-space: pre-wrap; word-break: break-word; }
+.sig .a span:last-child { color: var(--add-fg); white-space: pre-wrap; word-break: break-word; }
+.code { border: 1px solid var(--line); border-radius: 8px; background: var(--code-bg); overflow-x: auto; padding: 6px 0; font-family: var(--mono); font-size: 11.3px; line-height: 1.6; }
+.code .ln { display: flex; min-width: max-content; padding-right: 12px; }
+.code .sg { flex: none; width: 22px; text-align: center; user-select: none; }
+.code .tx { white-space: pre; }
+.code .ln.add { background: var(--add-bg); } .code .ln.add .sg { color: var(--add); } .code .ln.add .tx { color: var(--add-fg); }
+.code .ln.del { background: var(--del-bg); } .code .ln.del .sg { color: var(--del); } .code .ln.del .tx { color: var(--del-fg); }
+.code .ln.ctx .tx { color: #AEB4BF; } .code .ln.ctx .sg { color: #4A515E; }
+.code .ln.hunk { background: var(--hunk-bg); margin: 4px 0; } .code .ln.hunk .tx { color: var(--hunk-fg); font-style: italic; }
+.shots { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.shot { margin: 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.shot.wide { grid-column: 1 / -1; }
+.shot button { padding: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #fff; cursor: zoom-in; display: block; width: 100%; position: relative; }
+.shot img { display: block; width: 100%; height: 170px; object-fit: cover; object-position: top left; }
+.shot.wide img { height: auto; max-height: 320px; }
+.shot .side { position: absolute; left: 6px; top: 6px; font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; }
+.side.before { background: #3A1C1A; color: #F5877C; } .side.after { background: #173826; color: #5FD39B; }
+.shot figcaption { font-size: 11.8px; line-height: 1.45; color: var(--muted); }
+.shot figcaption b { color: var(--text-2); font-weight: 600; }
+.calls { display: flex; flex-direction: column; gap: 4px; }
+.calls button { display: flex; align-items: center; gap: 10px; padding: 7px 10px; background: var(--surface); border: 1px solid var(--line); border-radius: 7px; cursor: pointer; text-align: left; width: 100%; }
+.calls button:hover { background: var(--hover); }
+.calls .tag { flex: none; font-size: 10.3px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; width: 112px; }
+.calls .nm { flex: 1; min-width: 0; font-family: var(--mono); font-size: 12.3px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.empty { font-size: 12.5px; color: var(--faint); }
+.review-row { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 8px; }
+.review-btn { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; border-radius: 8px; cursor: pointer; font-size: 13.5px; font-weight: 600; border: 1px solid #2E3D5C; background: var(--accent-soft); color: var(--accent); }
+.review-btn[aria-pressed="true"] { background: #173826; border-color: #2D6B4C; color: #7BDCAB; }
+.next-btn { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; border: 1px solid var(--line); background: var(--surface); color: var(--text); }
+.next-btn:hover { background: var(--hover); }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.grid2 button { min-height: 42px; padding: 8px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; cursor: pointer; font-size: 12.5px; color: var(--text); text-align: left; }
+.grid2 button:hover { background: var(--hover); }
+.note { font-size: 12px; color: var(--faint); line-height: 1.5; }
+
+.lightbox { position: fixed; inset: 0; z-index: 50; background: rgba(5,6,8,.86); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.lightbox img { max-width: min(1280px, 100%); max-height: calc(100% - 90px); border-radius: 8px; border: 1px solid #2C313A; background: #fff; }
+.lightbox .cap { max-width: 900px; font-size: 13px; color: var(--text-2); text-align: center; line-height: 1.5; }
+.lightbox .lb-bar { display: flex; gap: 8px; }
+.lightbox .lb-bar button { padding: 7px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 7px; cursor: pointer; font-size: 12.5px; color: var(--text); }
+
+@media (max-width: 1180px) { .legend .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 900px) {
+  .zoombar .hint { display: none; }
+  .rail-inner, .rail-top { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+}
+@media (max-width: 760px) { .main.drawer-open .toolbar, .main.drawer-open .zoombar { visibility: hidden; } }
+@media (max-width: 520px) { .shots { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="app">
+  <header class="pr">
+    <div class="pr-bar">
+      <div class="pr-id">
+        <span class="repo" id="h-repo"></span>
+        <h1 id="h-title"></h1>
+        <span class="pill-state" id="h-state"></span>
+        <span class="merge-line" id="h-merge"></span>
+      </div>
+      <nav class="tabs" aria-label="Pull request views" id="h-tabs"></nav>
+      <div class="pr-meta">
+        <div class="adds" id="h-adds"></div>
+        <div class="progress"><span id="rev-text">Reviewed 0 of 0</span><div class="bar"><div id="rev-bar" style="width: 0%"></div></div></div>
+      </div>
+    </div>
+  </header>
+
+  <div class="main">
+    <section class="canvas" aria-label="Code graph">
+      <div class="viewport" id="vp">
+        <div class="world" id="world">
+          <svg class="edges" id="edges" width="1" height="1" aria-hidden="true"></svg>
+          <div id="decor"></div>
+          <div id="nodes"></div>
+          <div id="labels"></div>
+          <div id="badges"></div>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <div class="seg" role="group" aria-label="Graph state" id="modes"></div>
+        <div class="seg" role="group" aria-label="Edge types" id="rels"></div>
+        <button class="tool-btn" id="t-findings" aria-pressed="true"><span class="box"></span>Findings</button>
+        <button class="tool-btn" id="t-labels" aria-pressed="true" title="Show or hide edge labels (C)"><span class="box"></span>Edge labels <kbd>C</kbd></button>
+        <button class="tool-btn" id="t-untouched" aria-pressed="false" title="Hide untouched context nodes (X)"><span class="box"></span>Hide untouched <kbd>X</kbd></button>
+        <div class="mode-note" id="mode-note" hidden></div>
+        <span class="spacer"></span>
+        <button class="tool-btn panel-btn" id="t-panel" aria-pressed="false" title="Open the review panel (P)"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" style="fill:none;stroke:currentColor;stroke-width:1.6"><rect x="1.5" y="2.5" width="13" height="11" rx="1.5"/><path d="M10 2.5 V13.5"/></svg>Review panel <span class="count-pill" id="t-panel-count" hidden></span></button>
+      </div>
+
+      <div class="legend" aria-label="Legend" id="legend"></div>
+
+      <div class="zoombar">
+        <div class="hint"><kbd>R</kbd> mark reviewed &middot; <kbd>E</kbd> next unreviewed &middot; <kbd>A</kbd>/<kbd>D</kbd> prev/next &middot; <kbd>X</kbd> hide untouched &middot; <kbd>C</kbd> labels &middot; drag to pan, scroll to zoom</div>
+        <div class="seg">
+          <button id="z-out" aria-label="Zoom out">&minus;</button>
+          <button id="z-reset" aria-label="Reset zoom to 100%" class="mono" style="font-size:12px">100%</button>
+          <button id="z-in" aria-label="Zoom in">+</button>
+          <span class="sep"></span>
+          <button id="z-fit">Fit</button>
+          <button id="z-layout">Reset layout</button>
+          <span class="sep"></span>
+          <button id="z-legend" aria-pressed="true" title="Show or hide the legend (L)">Legend</button>
+          <button id="z-full" aria-pressed="false" title="Fill the browser window (F)"><svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true" style="fill:none;stroke:currentColor;stroke-width:1.6;margin-right:5px"><path d="M2 6 V2 H6 M10 2 H14 V6 M14 10 V14 H10 M6 14 H2 V10"/></svg><span id="z-full-text">Full view</span></button>
+        </div>
+      </div>
+    </section>
+
+    <aside class="rail" aria-label="Review panel" id="drawer">
+      <div class="rail-top"><span class="ttl" id="rail-ttl">Review panel</span><span class="acts"><button type="button" class="icon-btn" id="rail-review" hidden></button><button type="button" class="icon-btn" id="rail-next" title="Next unreviewed (E)">Next unreviewed <kbd>E</kbd></button><button type="button" class="icon-btn" id="rail-close" aria-label="Close panel">Close <span class="mono" style="color:var(--faint)">Esc</span></button></span></div>
+      <div class="rail-scroll" id="rail-scroll"><div class="rail-inner" id="rail"></div></div>
+    </aside>
+  </div>
+</div>
+<div class="lightbox" id="lightbox" hidden role="dialog" aria-modal="true" aria-label="Screenshot">
+  <img id="lb-img" alt="">
+  <div class="cap" id="lb-cap"></div>
+  <div class="lb-bar"><button id="lb-prev">&larr; Prev</button><button id="lb-close">Close (Esc)</button><button id="lb-next">Next &rarr;</button></div>
+</div>
+
+<script type="application/json" id="review-data">__DATA__</script>
+<script>
+(function () {
+  "use strict";
+  var D = JSON.parse(document.getElementById("review-data").textContent);
+  var NW = 232, NH = 120, LANE_W = 300;
+  var PR = D.pr || {};
+  var REPO_URL = "https://github.com/" + PR.repo;
+  var BLOB = REPO_URL + "/blob/" + (PR.headSha || "HEAD") + "/";
+  var STORE = "prgraph:" + PR.repo + "#" + PR.number + ":";
+
+  var KIND = {
+    added:     { label: "Added",            glyph: "+", color: "#5FD39B", chipBg: "#173826", bg: "#10251B", border: "#3E9E70" },
+    modified:  { label: "Modified",         glyph: "~", color: "#EBC15E", chipBg: "#3A2E12", bg: "#211B0F", border: "#B38C33" },
+    behavior:  { label: "Behavior changed", glyph: "!", color: "#BCA8FF", chipBg: "#2C2350", bg: "#1E1830", border: "#8770DC" },
+    removed:   { label: "Removed",          glyph: "−", color: "#F5877C", chipBg: "#3A1C1A", bg: "#2A1616", border: "#C25D53" },
+    unchanged: { label: "Untouched",        glyph: "=", color: "#A0A7B4", chipBg: "#232831", bg: "#14171C", border: "#3A404B" },
+    context:   { label: D.contextLabel || "Context",  glyph: "↓", color: "#8FB4EA", chipBg: "#18263A", bg: "#111A26", border: "#3B5F94" }
+  };
+  var NEUTRAL = { color: "#A0A7B4", chipBg: "#232831", bg: "#161A20", border: "#3A404B" };
+  var EK = {
+    added:     { label: "New",            tag: "new",            color: "#4CC38A" },
+    removed:   { label: "Removed",        tag: "removed",        color: "#F27A6E" },
+    modified:  { label: "Changed",        tag: "changed",        color: "#E8B84A" },
+    impacted:  { label: "Callee changed", tag: "callee changed", color: "#B49CFF" },
+    unchanged: { label: "Unchanged",      tag: "unchanged",      color: "#4A515E" },
+    context:   { label: D.contextLabel || "Context", tag: "context", color: "#4F6E9E" }
+  };
+  // One catalogue for every stack: the line style says what kind of dependency an edge is.
+  var REL = {
+    render:  { label: "Renders / composes", verb: "renders",     dash: "none",     w: 1.9, cap: "butt",  group: "structure" },
+    nav:     { label: "Navigates / routes", verb: "routes to",   dash: "10 4 2 4", w: 1.7, cap: "butt",  group: "structure" },
+    call:    { label: "Calls",              verb: "calls",       dash: "none",     w: 1.6, cap: "butt",  group: "calls" },
+    use:     { label: "Uses hook / util",   verb: "uses",        dash: "6 4",      w: 1.6, cap: "butt",  group: "calls" },
+    net:     { label: "Network request",    verb: "requests",    dash: "1.5 5",    w: 2.7, cap: "round", group: "network" },
+    resolve: { label: "Resolves on server", verb: "resolves to", dash: "none",     w: 1.4, cap: "butt",  group: "network" },
+    read:    { label: "Reads data",         verb: "reads",       dash: "3 3",      w: 1.6, cap: "butt",  group: "data" },
+    write:   { label: "Writes data",        verb: "writes",      dash: "none",     w: 2.4, cap: "butt",  group: "data" },
+    async:   { label: "Async (job/event)",  verb: "enqueues",    dash: "2 7",      w: 2.2, cap: "round", group: "async" },
+    test:    { label: "Tests",              verb: "tests",       dash: "2 3",      w: 1.2, cap: "butt",  group: "tests" }
+  };
+  var GROUP_LABEL = { structure: "Structure", calls: "Calls", network: "Network", data: "Data", async: "Async", tests: "Tests" };
+  var GROUP_ORDER = ["structure", "calls", "network", "data", "async", "tests"];
+  var SEV = {
+    high: { label: "High",   color: "var(--sev-high)", bg: "var(--sev-high-bg)" },
+    med:  { label: "Medium", color: "var(--sev-med)",  bg: "var(--sev-med-bg)" },
+    low:  { label: "Low",    color: "var(--sev-low)",  bg: "var(--sev-low-bg)" },
+    nit:  { label: "Nit",    color: "var(--sev-nit)",  bg: "var(--sev-nit-bg)" }
+  };
+  var SEV_RANK = { high: 0, med: 1, low: 2, nit: 3 };
+
+  var LANES = (D.lanes || []).map(function (l, i) { return { x: i * LANE_W, label: l.label, note: l.note || "" }; });
+  var NODES = D.nodes || [], EDGES = D.edges || [], FINDINGS = D.findings || [], CODE = D.code || {};
+  var NODE = {}; NODES.forEach(function (n) { n.x0 = n.x; n.y0 = n.y; NODE[n.id] = n; });
+  var FIND_BY_ID = {}; FINDINGS.forEach(function (f) { FIND_BY_ID[f.id] = f; });
+  NODES.forEach(function (n) {
+    n.findings = FINDINGS.filter(function (f) { return f.node === n.id || (f.alsoNodes || []).indexOf(n.id) >= 0; }).map(function (f) { return f.id; });
+  });
+  var REVIEWABLE = { added: 1, modified: 1, behavior: 1, removed: 1 };
+  var ORDER = (D.order && D.order.length ? D.order : NODES.filter(function (n) { return REVIEWABLE[n.kind]; })
+    .slice().sort(function (a, b) { return a.x - b.x || a.y - b.y; }).map(function (n) { return n.id; }));
+  var USED_GROUPS = GROUP_ORDER.filter(function (g) { return EDGES.some(function (e) { return REL[e.rel] && REL[e.rel].group === g; }); });
+  var HAS_CONTEXT = NODES.some(function (n) { return n.kind === "context"; });
+
+  // ---------- state ----------
+  var S = { mode: "diff", sel: null, rels: {}, labels: true, findings: true, hideUntouched: false,
+            px: 40, py: 120, zoom: 0.6, reviewed: {}, drawer: false, full: false, legend: window.innerWidth >= 1100 };
+  USED_GROUPS.forEach(function (g) { S.rels[g] = true; });
+  function load(key, fallback) { try { var v = localStorage.getItem(STORE + key); return v === null ? fallback : JSON.parse(v); } catch (e) { return fallback; } }
+  function save(key, value) { try { localStorage.setItem(STORE + key, JSON.stringify(value)); } catch (e) {} }
+  S.reviewed = load("reviewed", {}) || {};
+  S.legend = load("legend", S.legend);
+
+  var $ = function (id) { return document.getElementById(id); };
+  var vp = $("vp"), world = $("world"), svg = $("edges"), nodesEl = $("nodes"), labelsEl = $("labels"), decorEl = $("decor"), rail = $("rail");
+  var mainEl = document.querySelector(".main"), appEl = document.querySelector(".app"), drawerEl = $("drawer"), railScroll = $("rail-scroll");
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" }[c]; }); }
+  function fmt(n) { return Number(n || 0).toLocaleString("en-US"); }
+  function drawerWidth() { return S.drawer && window.innerWidth > 760 ? drawerEl.offsetWidth : 0; }
+
+  // ---------- header ----------
+  (function renderPrHeader() {
+    $("h-repo").textContent = PR.repo || "";
+    $("h-title").innerHTML = '<a class="pr-link" href="' + REPO_URL + "/pull/" + esc(PR.number) + '" title="Open the PR on GitHub">' + esc(PR.title) + ' <span class="num">#' + esc(PR.number) + '</span></a>';
+    var st = (PR.state || "open").toLowerCase();
+    $("h-state").textContent = st.charAt(0).toUpperCase() + st.slice(1);
+    $("h-state").className = "pill-state" + (st === "merged" ? " merged" : st === "closed" ? " closed" : "");
+    $("h-merge").innerHTML = esc(PR.author || "") + (PR.headRef ? ' &middot; <code>' + esc(PR.headRef) + '</code> &rarr; <code>' + esc(PR.baseRef) + '</code>' : "") + (PR.headSha ? ' &middot; <code>' + esc(PR.headSha.slice(0, 10)) + '</code>' : "");
+    var base = REPO_URL + "/pull/" + PR.number;
+    $("h-tabs").innerHTML = '<a href="' + base + '">Conversation</a>' +
+      '<a href="' + base + '/commits">Commits' + (PR.commits ? ' <span class="count">' + PR.commits + '</span>' : "") + '</a>' +
+      '<a href="' + base + '/files">Files changed' + (PR.files ? ' <span class="count">' + PR.files + '</span>' : "") + '</a>' +
+      '<span aria-current="page"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="1.5" y="2" width="5" height="4" rx="1"></rect><rect x="9.5" y="2" width="5" height="4" rx="1"></rect><rect x="5.5" y="10" width="5" height="4" rx="1"></rect><path d="M4 6 V8 H8 V10 M12 6 V8 H8"></path></svg>Review graph</span>';
+    $("h-adds").innerHTML = '<span class="plus">+' + fmt(PR.additions) + '</span> <span class="minus">−' + fmt(PR.deletions) + '</span>';
+    if (FINDINGS.length) { $("t-panel-count").hidden = false; $("t-panel-count").textContent = FINDINGS.length + " finding" + (FINDINGS.length === 1 ? "" : "s"); }
+  })();
+
+  function renderLegend() {
+    var kinds = ["added", "modified", "behavior", "removed", "unchanged"].concat(HAS_CONTEXT ? ["context"] : []);
+    var html = '<h4>Nodes</h4><div class="grid">' + kinds.map(function (k) {
+      var s = KIND[k];
+      return '<span><span class="sq" style="background:' + (k === "unchanged" ? "transparent" : s.bg) + ';border-color:' + (k === "unchanged" ? "#5A6170" : s.border) + (k === "removed" || k === "unchanged" ? ";border-style:dashed" : "") + '"></span>' + esc(s.label) + '</span>';
+    }).join("") + '<span><span class="rv-mini"><svg width="8" height="8" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5 L6.5 12 L13 4.5"/></svg></span>Reviewed (faded)</span></div>';
+    var rels = Object.keys(REL).filter(function (r) { return EDGES.some(function (e) { return e.rel === r; }); });
+    html += '<h4>Edges &middot; line = relation</h4><div class="grid">' + rels.map(function (r) {
+      var x = REL[r];
+      return '<span><svg width="26" height="8" aria-hidden="true"><path d="M2 4 H25" stroke="#A0A7B4" stroke-width="' + Math.min(x.w, 2.4) + '" stroke-dasharray="' + x.dash + '" stroke-linecap="' + x.cap + '" fill="none"></path></svg>' + esc(x.label) + '</span>';
+    }).join("") + '</div>';
+    html += '<h4>Edges &middot; color = change</h4><div class="grid">' + ["added", "modified", "removed", "impacted", "unchanged"].concat(HAS_CONTEXT ? ["context"] : []).map(function (k) {
+      return '<span><svg width="26" height="8" aria-hidden="true"><path d="M1 4 H25" stroke="' + EK[k].color + '" stroke-width="2"' + (k === "removed" ? ' stroke-dasharray="6 5"' : "") + ' fill="none"></path></svg>' + esc(EK[k].label) + '</span>';
+    }).join("") + '</div>';
+    $("legend").innerHTML = html;
+  }
+
+  // ---------- visibility ----------
+  function nodeVisible(n) {
+    if (S.mode === "before" && n.kind === "added") return false;
+    if (S.mode === "after" && n.kind === "removed") return false;
+    if (S.hideUntouched && n.kind === "unchanged") return false;
+    return true;
+  }
+  function edgeVisible(e) {
+    if (!NODE[e.from] || !NODE[e.to] || !nodeVisible(NODE[e.from]) || !nodeVisible(NODE[e.to])) return false;
+    if (S.mode === "before" && e.kind === "added") return false;
+    if (S.mode === "after" && e.kind === "removed") return false;
+    return !!S.rels[(REL[e.rel] || REL.call).group];
+  }
+  function isReviewedDim(id) { return !!S.reviewed[id]; }
+  // An edge is done once every reviewable node at its ends is reviewed; context nodes don't hold it open.
+  function edgeReviewed(e) {
+    var ends = [e.from, e.to].filter(function (id) { return ORDER.indexOf(id) >= 0; });
+    return ends.length > 0 && ends.every(function (id) { return S.reviewed[id]; });
+  }
+  function focusSets() {
+    if (!S.sel) return null;
+    var fN = {}, fE = {};
+    if (S.sel.type === "node") {
+      fN[S.sel.id] = 1;
+      EDGES.forEach(function (e) { if (!edgeVisible(e)) return; if (e.from === S.sel.id || e.to === S.sel.id) { fE[e.id] = 1; fN[e.from] = 1; fN[e.to] = 1; } });
+    } else {
+      var e = EDGES.find(function (x) { return x.id === S.sel.id; });
+      if (e) { fE[e.id] = 1; fN[e.from] = 1; fN[e.to] = 1; }
+    }
+    return { n: fN, e: fE };
+  }
+  function nodeStyle(n) { return n.kind === "context" ? KIND.context : S.mode === "diff" ? KIND[n.kind] || NEUTRAL : NEUTRAL; }
+  function edgeColor(e) { return e.kind === "context" ? EK.context.color : S.mode === "diff" ? (EK[e.kind] || EK.unchanged).color : "#59606C"; }
+
+  // ---------- geometry ----------
+  function geom(e) {
+    var a = NODE[e.from], b = NODE[e.to], sx, sy, tx, ty, c1x, c1y, c2x, c2y;
+    if (b.x >= a.x + NW - 10) {
+      sx = a.x + NW; sy = a.y + NH / 2; tx = b.x; ty = b.y + NH / 2;
+      var dx = Math.max(60, (tx - sx) * 0.5);
+      c1x = sx + dx; c1y = sy; c2x = tx - dx; c2y = ty;
+    } else if (b.x + NW <= a.x + 10) {
+      sx = a.x; sy = a.y + NH / 2; tx = b.x + NW; ty = b.y + NH / 2;
+      var bx = Math.max(60, (sx - tx) * 0.5);
+      c1x = sx - bx; c1y = sy; c2x = tx + bx; c2y = ty;
+    } else {
+      var down = b.y > a.y;
+      sx = a.x + NW / 2; sy = down ? a.y + NH : a.y; tx = b.x + NW / 2; ty = down ? b.y : b.y + NH;
+      var dy = Math.max(50, Math.abs(ty - sy) * 0.5) * (down ? 1 : -1);
+      c1x = sx; c1y = sy + dy; c2x = tx; c2y = ty - dy;
+    }
+    return { sx: sx, sy: sy, c1x: c1x, c1y: c1y, c2x: c2x, c2y: c2y, tx: tx, ty: ty };
+  }
+  function bez(g, t) { var u = 1 - t; return { x: u*u*u*g.sx + 3*u*u*t*g.c1x + 3*u*t*t*g.c2x + t*t*t*g.tx, y: u*u*u*g.sy + 3*u*u*t*g.c1y + 3*u*t*t*g.c2y + t*t*t*g.ty }; }
+  function arrowPath(g) {
+    var ang = Math.atan2(g.ty - g.c2y, g.tx - g.c2x), L = 9, W = 4.5;
+    var bx = g.tx - Math.cos(ang) * L, by = g.ty - Math.sin(ang) * L, px = -Math.sin(ang) * W, py = Math.cos(ang) * W;
+    return "M" + g.tx.toFixed(1) + " " + g.ty.toFixed(1) + " L" + (bx + px).toFixed(1) + " " + (by + py).toFixed(1) + " L" + (bx - px).toFixed(1) + " " + (by - py).toFixed(1) + " Z";
+  }
+  function hit(r, b) { return r.x < b.x + b.w && r.x + r.w > b.x && r.y < b.y + b.h && r.y + r.h > b.y; }
+
+  // ---------- canvas ----------
+  function renderDecor() {
+    var vis = NODES.filter(nodeVisible);
+    var minY = Math.min.apply(null, vis.map(function (n) { return n.y; }).concat([0]));
+    var maxY = Math.max.apply(null, vis.map(function (n) { return n.y + NH; }).concat([NH]));
+    var html = LANES.map(function (l) { return '<div class="lane-head" style="left:' + l.x + 'px;top:' + (minY - 64) + 'px"><span>' + esc(l.label) + '</span><span>' + esc(l.note) + '</span></div>'; }).join("");
+    (D.boundaries || []).forEach(function (b) {
+      var bx = (b.afterLane + 1) * LANE_W - 35;
+      html += '<div class="boundary" style="left:' + bx + 'px;top:' + (minY - 80) + 'px;height:' + (maxY - minY + 120) + 'px"></div>';
+      html += '<div class="boundary-label" style="left:' + bx + 'px;top:' + (minY - 104) + 'px">' + esc(b.label) + '</div>';
+    });
+    decorEl.innerHTML = html;
+  }
+
+  function renderGraph() {
+    renderDecor();
+    var f = focusSets();
+    nodesEl.innerHTML = "";
+    NODES.forEach(function (n) {
+      if (!nodeVisible(n)) return;
+      var st = nodeStyle(n), isSel = S.sel && S.sel.type === "node" && S.sel.id === n.id;
+      var b = document.createElement("button");
+      b.className = "gnode"; b.type = "button"; b.dataset.id = n.id;
+      b.setAttribute("aria-label", n.type + " " + n.name + ", " + (KIND[n.kind] || NEUTRAL).label + (n.unused ? ", no consumer" : "") + (S.reviewed[n.id] ? ", reviewed" : ""));
+      var rv = isReviewedDim(n.id);
+      if (rv && !isSel) b.classList.add("reviewed");
+      // Untouched context recedes in every mode (dashed grey, see-through, no shadow) but keeps its
+      // colour and gets no badge, so it never reads as "reviewed".
+      var quiet = n.kind === "unchanged" && !isSel;
+      if (quiet) b.classList.add("untouched");
+      var nodeOp = f && !f.n[n.id] ? (rv ? 0.12 : 0.18) : (rv && !isSel ? 0.45 : quiet ? 0.72 : 1);
+      var dashed = n.kind === "removed" || n.unused || n.kind === "unchanged";
+      b.style.cssText = "left:" + n.x + "px;top:" + n.y + "px;background:" + (quiet ? "rgba(20,23,28,.5)" : st.bg) + ";border-color:" + (n.unused && S.mode === "diff" ? "#C9A04A" : quiet ? "#4A515E" : st.border) +
+        ";border-style:" + (dashed ? "dashed" : "solid") + ";opacity:" + nodeOp +
+        ";box-shadow:" + (isSel ? "0 0 0 3px rgba(138,180,248,.35), 0 10px 30px rgba(0,0,0,.5)" : quiet ? "none" : "0 6px 16px rgba(0,0,0,.35)");
+      var chipText = n.type + (n.unused ? " · no consumer" : "") + (n.layer ? " · " + n.layer : "");
+      var stats = (n.add ? '<span class="plus">+' + n.add + '</span>' : "") + (n.del ? '<span class="minus">−' + n.del + '</span>' : "");
+      var fp = "";
+      if (S.findings && n.findings.length && S.mode === "diff") {
+        n.findings.slice(0, 3).forEach(function (id) { var s = SEV[FIND_BY_ID[id].sev] || SEV.low; fp += '<span class="fpill" style="color:' + s.color + ';background:' + s.bg + '">' + esc(id) + '</span>'; });
+        if (n.findings.length > 3) fp += '<span class="fpill" style="color:#A0A7B4;background:#232831">+' + (n.findings.length - 3) + '</span>';
+      }
+      var struck = n.kind === "removed" && S.mode === "diff";
+      b.innerHTML =
+        '<span class="row1"><span class="chip" style="background:' + st.chipBg + ';color:' + st.color + '">' + esc(chipText) + '</span><span class="stats">' + fp + stats + '</span></span>' +
+        '<span style="display:block;width:100%"><span class="sub">' + esc(n.sub) + '</span><span class="name" style="color:' + (struck ? "#F5C4BE;text-decoration:line-through" : "#F2F3F5") + '">' + esc(n.name) + '</span></span>' +
+        '<span style="display:flex;flex-direction:column;gap:2px;width:100%;padding-right:' + (n.images && n.images.length ? 22 : 0) + 'px">' +
+        (n.bullets || []).slice(0, 2).map(function (t) { return '<span class="bul">· ' + esc(t) + '</span>'; }).join("") + '</span>' +
+        (n.images && n.images.length ? '<span class="thumb-dot" title="Has screenshots"></span>' : "");
+      attachNodeHandlers(b, n);
+      nodesEl.appendChild(b);
+    });
+    // Badges live in their own layer so the card's dimming doesn't fade them, and counter-scale with zoom.
+    $("badges").innerHTML = NODES.filter(function (n) { return nodeVisible(n) && S.reviewed[n.id]; }).map(function (n) {
+      return '<span class="rv-badge" style="left:' + (n.x + NW - 4) + 'px;top:' + (n.y + 4) + 'px;opacity:' + (f && !f.n[n.id] ? 0.25 : 1) + '"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5 L6.5 12 L13 4.5"/></svg></span>';
+    }).join("");
+    var boxes = NODES.filter(nodeVisible).map(function (n) { return { x: n.x - 4, y: n.y - 4, w: NW + 8, h: NH + 8 }; });
+    var placed = [], paths = "", labels = "";
+    EDGES.forEach(function (e) {
+      if (!edgeVisible(e)) return;
+      var g = geom(e), r = REL[e.rel] || REL.call, col = edgeColor(e);
+      var dash = e.kind === "removed" && S.mode === "diff" ? "6 5" : r.dash;
+      var op = f && !f.e[e.id] ? 0.08 : (e.kind === "unchanged" ? 0.75 : 1);
+      var done = edgeReviewed(e) && !(f && f.e[e.id]);
+      if (done) op = Math.min(op, 0.3);
+      var isSel = S.sel && S.sel.type === "edge" && S.sel.id === e.id;
+      paths += '<path d="M' + g.sx.toFixed(1) + ' ' + g.sy.toFixed(1) + ' C' + g.c1x.toFixed(1) + ' ' + g.c1y.toFixed(1) + ' ' + g.c2x.toFixed(1) + ' ' + g.c2y.toFixed(1) + ' ' + g.tx.toFixed(1) + ' ' + g.ty.toFixed(1) +
+        '" style="fill:none;stroke:' + col + ';stroke-width:' + (r.w + (isSel ? 1.2 : 0)) + ';stroke-dasharray:' + dash + ';stroke-linecap:' + r.cap + ';opacity:' + op + '"/>';
+      paths += '<path d="' + arrowPath(g) + '" style="fill:' + col + ';stroke:none;opacity:' + op + '"/>';
+      if (S.labels && e.label) {
+        var lw = Math.round(e.label.length * 6.2 + 22), lh = 24, chosen = null, TS = [0.5, 0.42, 0.58, 0.34, 0.66, 0.27, 0.73, 0.2, 0.8];
+        for (var i = 0; i < TS.length; i++) {
+          var pt = bez(g, TS[i]), rect = { x: pt.x - lw / 2, y: pt.y - lh / 2, w: lw, h: lh };
+          if (!boxes.some(function (bb) { return hit(rect, bb); }) && !placed.some(function (bb) { return hit(rect, bb); })) { chosen = { pt: pt, rect: rect }; break; }
+        }
+        if (!chosen) { var p5 = bez(g, 0.5); chosen = { pt: p5, rect: { x: p5.x - lw / 2, y: p5.y - lh / 2, w: lw, h: lh } }; }
+        placed.push(chosen.rect);
+        labels += '<button class="elabel" type="button" data-edge="' + esc(e.id) + '" style="left:' + chosen.pt.x.toFixed(1) + 'px;top:' + chosen.pt.y.toFixed(1) + 'px;color:' + col +
+          ';border-color:' + (isSel ? col : "#2E333D") + ';opacity:' + (f && !f.e[e.id] ? 0.12 : done ? 0.35 : 1) + '" aria-label="' + esc(r.label + ": " + NODE[e.from].name + " to " + NODE[e.to].name + ", " + e.label) + '">' + esc(e.label) + '</button>';
+      }
+    });
+    svg.innerHTML = paths;
+    labelsEl.innerHTML = labels;
+    Array.prototype.forEach.call(labelsEl.querySelectorAll(".elabel"), function (el) {
+      el.addEventListener("pointerdown", function (ev) { ev.stopPropagation(); });
+      el.addEventListener("click", function (ev) { ev.stopPropagation(); selectEdge(el.dataset.edge); });
+    });
+  }
+
+  function applyTransform(animate) {
+    world.classList.toggle("animate", !!animate);
+    world.style.transform = "translate(" + S.px + "px," + S.py + "px) scale(" + S.zoom + ")";
+    var gs = 22 * S.zoom;
+    vp.style.backgroundSize = gs + "px " + gs + "px";
+    vp.style.backgroundPosition = S.px + "px " + S.py + "px";
+    $("z-reset").textContent = Math.round(S.zoom * 100) + "%";
+    world.style.setProperty("--bs", String(Math.min(3.2, Math.max(1, 0.8 / S.zoom))));
+  }
+  function fit(animate) {
+    var vis = NODES.filter(nodeVisible);
+    if (!vis.length) return;
+    var x0 = Math.min.apply(null, vis.map(function (n) { return n.x; })), y0 = Math.min.apply(null, vis.map(function (n) { return n.y; })) - 110;
+    var x1 = Math.max.apply(null, vis.map(function (n) { return n.x + NW; })), y1 = Math.max.apply(null, vis.map(function (n) { return n.y + NH; }));
+    // Keep the fitted graph clear of the toolbar and of the legend: the legend's corner is kept free
+    // either below the graph or to its left, whichever leaves the larger zoom.
+    var legend = $("legend"), legendW = S.legend ? legend.offsetWidth + 24 : 0, legendH = S.legend ? legend.offsetHeight + 24 : 0;
+    var r = vp.getBoundingClientRect(), padT = Math.max(70, document.querySelector(".toolbar").offsetHeight + 28), pad = 30, availW = r.width - drawerWidth();
+    var gw = x1 - x0, gh = y1 - y0;
+    function zoomFor(left, bottom) { return Math.min((availW - left - pad * 2) / gw, (r.height - padT - bottom) / gh); }
+    var below = zoomFor(0, Math.max(64, legendH)), beside = zoomFor(legendW, 64);
+    var left = beside > below ? legendW : 0, bottom = beside > below ? 64 : Math.max(64, legendH);
+    var z = Math.max(0.2, Math.min(1.1, Math.max(below, beside)));
+    S.zoom = z;
+    S.px = left + (availW - left - gw * z) / 2 - x0 * z;
+    S.py = padT + ((r.height - padT - bottom) - gh * z) / 2 - y0 * z;
+    applyTransform(animate);
+  }
+  function zoomAt(factor, cx, cy) {
+    var nz = Math.max(0.15, Math.min(2.2, S.zoom * factor)), wx = (cx - S.px) / S.zoom, wy = (cy - S.py) / S.zoom;
+    S.zoom = nz; S.px = cx - wx * nz; S.py = cy - wy * nz; applyTransform(false);
+  }
+  function centerOn(n) {
+    var r = vp.getBoundingClientRect(), z = Math.max(S.zoom, 0.7), availW = r.width - drawerWidth();
+    if (availW < 300) availW = r.width;
+    S.zoom = z; S.px = availW * 0.5 - (n.x + NW / 2) * z; S.py = r.height * 0.5 - (n.y + NH / 2) * z; applyTransform(true);
+  }
+
+  // ---------- pointer: pan + node drag ----------
+  var drag = null;
+  vp.addEventListener("pointerdown", function (ev) {
+    if (ev.button !== 0) return;
+    drag = { type: "pan", x: ev.clientX, y: ev.clientY, px: S.px, py: S.py, moved: false };
+    vp.setPointerCapture(ev.pointerId); vp.classList.add("dragging");
+  });
+  function attachNodeHandlers(b, n) {
+    b.addEventListener("pointerdown", function (ev) {
+      if (ev.button !== 0) return;
+      ev.stopPropagation();
+      drag = { type: "node", id: n.id, x: ev.clientX, y: ev.clientY, nx: n.x, ny: n.y, moved: false };
+      vp.setPointerCapture(ev.pointerId);
+    });
+    b.addEventListener("click", function (ev) { ev.stopPropagation(); if (b.dataset.justDragged) { delete b.dataset.justDragged; return; } selectNode(n.id, false); });
+  }
+  vp.addEventListener("pointermove", function (ev) {
+    if (!drag) return;
+    var dx = ev.clientX - drag.x, dy = ev.clientY - drag.y;
+    if (Math.abs(dx) + Math.abs(dy) > 4) drag.moved = true;
+    if (drag.type === "pan") { S.px = drag.px + dx; S.py = drag.py + dy; applyTransform(false); }
+    else if (drag.moved) { var n = NODE[drag.id]; n.x = Math.round(drag.nx + dx / S.zoom); n.y = Math.round(drag.ny + dy / S.zoom); renderGraphSoon(); }
+  });
+  function endDrag(ev) {
+    if (!drag) return;
+    var d = drag; drag = null; vp.classList.remove("dragging");
+    try { vp.releasePointerCapture(ev.pointerId); } catch (e) {}
+    if (d.type === "pan" && !d.moved && (S.sel || S.drawer)) { S.sel = null; S.drawer = false; renderAll(); }
+    if (d.type === "node") {
+      if (d.moved) { var el = nodesEl.querySelector('[data-id="' + d.id + '"]'); if (el) el.dataset.justDragged = "1"; }
+      else selectNode(d.id, false);
+    }
+  }
+  vp.addEventListener("pointerup", endDrag);
+  vp.addEventListener("pointercancel", endDrag);
+  vp.addEventListener("wheel", function (ev) { ev.preventDefault(); var r = vp.getBoundingClientRect(); zoomAt(Math.exp(-ev.deltaY * 0.0015), ev.clientX - r.left, ev.clientY - r.top); }, { passive: false });
+  var raf = 0;
+  function renderGraphSoon() { if (raf) return; raf = requestAnimationFrame(function () { raf = 0; renderGraph(); }); }
+
+  // ---------- selection + review ----------
+  function selectNode(id, center) { if (!NODE[id]) return; S.sel = { type: "node", id: id }; S.drawer = true; renderAll(); if (center) centerOn(NODE[id]); railScroll.scrollTop = 0; }
+  function selectEdge(id) { S.sel = { type: "edge", id: id }; S.drawer = true; renderAll(); railScroll.scrollTop = 0; }
+  function clearSel() { S.sel = null; renderAll(); railScroll.scrollTop = 0; }
+  function closeDrawer() { S.sel = null; S.drawer = false; renderAll(); }
+  function togglePanel() { if (S.drawer) closeDrawer(); else { S.drawer = true; renderAll(); railScroll.scrollTop = 0; } }
+  function toggleFull() { S.full = !S.full; renderAll(); }
+  function toggleLegend() { S.legend = !S.legend; save("legend", S.legend); renderAll(); }
+  function toggleLabels() { S.labels = !S.labels; renderAll(); }
+  // No setting change moves the view: only Fit, opening a node (centres it) and the first load do.
+  function toggleUntouched() { S.hideUntouched = !S.hideUntouched; renderAll(); }
+  function toggleReviewed(id) {
+    if (ORDER.indexOf(id) < 0) return;
+    if (S.reviewed[id]) delete S.reviewed[id]; else S.reviewed[id] = true;
+    save("reviewed", S.reviewed); renderAll();
+  }
+  function nextUnreviewed() {
+    var start = S.sel && S.sel.type === "node" ? ORDER.indexOf(S.sel.id) : -1;
+    for (var i = 1; i <= ORDER.length; i++) { var id = ORDER[(start + i + ORDER.length) % ORDER.length]; if (!S.reviewed[id] && nodeVisible(NODE[id])) return id; }
+    return null;
+  }
+  function stepChanged(step) {
+    var start = S.sel && S.sel.type === "node" ? ORDER.indexOf(S.sel.id) : (step > 0 ? -1 : 0);
+    return ORDER[(start + step + ORDER.length) % ORDER.length];
+  }
+  function goNextUnreviewed() { var id = nextUnreviewed(); if (id) selectNode(id, true); }
+
+  // ---------- rail ----------
+  function codeBlock(id) {
+    var lines = CODE[id]; if (!lines) return "";
+    return '<div class="code">' + lines.map(function (l) {
+      var c = l.charAt(0), t = l.slice(1), cls = c === "+" ? "add" : c === "-" ? "del" : c === "@" ? "hunk" : "ctx";
+      var sg = c === "+" ? "+" : c === "-" ? "−" : c === "@" ? "@@" : "";
+      return '<div class="ln ' + cls + '"><span class="sg">' + sg + '</span><span class="tx">' + esc(cls === "hunk" ? t.trim() : t) + '</span></div>';
+    }).join("") + '</div>';
+  }
+  function kindLabel(n) { return n.unused ? "Added · no consumer" : (KIND[n.kind] || NEUTRAL).label; }
+  function glyphStyle(n) { var k = KIND[n.kind] || KIND.unchanged; return "background:" + k.chipBg + ";color:" + k.color; }
+  function sevPill(f) { var s = SEV[f.sev] || SEV.low; return '<span class="sev" style="color:' + s.color + ';background:' + s.bg + '">' + esc(f.id) + '</span>'; }
+  function findingBtn(f) {
+    var n = NODE[f.node], s = SEV[f.sev] || SEV.low;
+    return '<button type="button" class="row-btn" data-go="' + esc(f.node) + '">' + sevPill(f) + '<span class="f-body"><span class="f-title">' + esc(f.title) + '</span><span class="f-target" style="color:' + s.color + '">' + esc(s.label + " · " + (n ? n.name : f.node)) + '</span><span class="f-text">' + esc(f.text) + '</span></span></button>';
+  }
+  function tile(k, parts) { return '<div class="tile"><div class="k">' + esc(k) + '</div><div class="v">' + parts.filter(function (p) { return p[1] !== null; }).map(function (p) { return '<span style="color:' + p[0] + '">' + p[1] + '</span>'; }).join("") + '</div></div>'; }
+
+  function renderOverview() {
+    var html = '<div class="stack"><div class="eyebrow">Review graph summary</div><p>' + esc(D.summary || "") + '</p></div>';
+    if (D.stack && D.stack.length) {
+      html += '<div class="stack"><h3>Stack &middot; review bottom-up</h3><div class="stack-strip">' + D.stack.map(function (p) {
+        var label = "#" + p.number + (p.label ? " " + p.label : "");
+        return p.current ? '<span class="here">' + esc(label) + '</span>' : '<a href="' + REPO_URL + '/pull/' + p.number + '">' + esc(label) + '</a>';
+      }).join("") + '</div></div>';
+    }
+    function cnt(kind) { return NODES.filter(function (n) { return n.kind === kind; }).length; }
+    function ecnt(kind) { return EDGES.filter(function (e) { return e.kind === kind; }).length; }
+    html += '<div class="tiles">' +
+      tile("Code units", [["var(--add)", "+" + cnt("added")], ["#E8B84A", "~" + (cnt("modified") + cnt("behavior"))], ["var(--del)", "−" + cnt("removed")]]) +
+      tile("Relationships", [["var(--add)", "+" + ecnt("added")], ["#E8B84A", "~" + (ecnt("modified") + ecnt("impacted"))], ["var(--del)", "−" + ecnt("removed")]]) +
+      tile("Findings", FINDINGS.length ? ["high", "med", "low", "nit"].map(function (s) { var c = FINDINGS.filter(function (f) { return f.sev === s; }).length; return [SEV[s].color, c ? c + " " + SEV[s].label.toLowerCase() : null]; }) : [["var(--faint)", "none"]]) +
+      tile("Files", [["var(--text)", fmt(PR.files)]]) + '</div>';
+    if (FINDINGS.length) {
+      var sorted = FINDINGS.slice().sort(function (a, b) { return (SEV_RANK[a.sev] || 9) - (SEV_RANK[b.sev] || 9); });
+      var top = sorted.filter(function (f) { return f.sev === "high" || f.sev === "med"; });
+      if (!top.length) top = sorted.slice(0, 5);
+      var rest = sorted.filter(function (f) { return top.indexOf(f) < 0; });
+      html += '<div class="stack"><h2>Worth a close look</h2><div class="stack" style="gap:6px">' + top.map(findingBtn).join("") + '</div>' +
+        (rest.length ? '<details><summary style="cursor:pointer;font-size:12.5px;color:var(--accent);padding:4px 0">Show ' + rest.length + ' more</summary><div class="stack" style="gap:6px;margin-top:6px">' + rest.map(findingBtn).join("") + '</div></details>' : "") + '</div>';
+    }
+    var rc = ORDER.filter(function (id) { return S.reviewed[id]; }).length;
+    html += '<div class="stack"><div style="display:flex;justify-content:space-between;align-items:baseline"><h2>Changed nodes</h2><span style="font-size:12px;color:var(--muted)">' + rc + ' / ' + ORDER.length + ' reviewed</span></div><div class="list">' +
+      ORDER.map(function (id) {
+        var n = NODE[id];
+        return '<button type="button" data-go="' + esc(id) + '"' + (S.reviewed[id] ? ' class="done"' : "") + '><span class="glyph" style="' + glyphStyle(n) + '">' + (KIND[n.kind] || KIND.unchanged).glyph + '</span><span class="li-main"><span class="q">' + esc(n.name) + '</span><span class="s">' + esc(n.type + " · " + kindLabel(n) + " · " + n.sub) + '</span></span>' +
+          (S.reviewed[id] ? '<svg class="check" viewBox="0 0 16 16" role="img" aria-label="Reviewed" style="fill:none;stroke:#8AB4F8;stroke-width:2"><path d="M3 8.5 L6.5 12 L13 4.5"/></svg>' : "") + '</button>';
+      }).join("") + '</div></div>';
+    html += '<p class="note">' + esc(D.note || "") + (D.note ? " " : "") + 'A red box marks the part of each screenshot that its node renders or affects. Reviewed marks are kept in this browser only.</p>';
+    rail.innerHTML = html;
+  }
+
+  function relRows(list, dir) {
+    if (!list.length) return '<div class="empty">' + (dir === "out" ? "Nothing downstream in this graph." : "Entry point: nothing upstream in this graph.") + '</div>';
+    return '<div class="calls">' + list.map(function (e) {
+      var other = NODE[dir === "out" ? e.to : e.from], col = edgeColor(e), r = REL[e.rel] || REL.call;
+      return '<button type="button" data-edge="' + esc(e.id) + '"><span class="tag" style="color:' + col + '">' + esc(r.verb + (e.kind !== "context" && e.kind !== "unchanged" ? " · " + (EK[e.kind] || EK.unchanged).tag : "")) + '</span><span class="nm" style="' + (e.kind === "removed" ? "text-decoration:line-through" : "") + '">' + esc(other.name) + '</span><svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" style="flex:none;fill:none;stroke:#8B93A1;stroke-width:1.8"><path d="M6 3 L11 8 L6 13"/></svg></button>';
+    }).join("") + '</div>';
+  }
+  var BACK = '<button type="button" class="back" id="go-back"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" style="fill:none;stroke:currentColor;stroke-width:1.8"><path d="M10 3 L5 8 L10 13"/></svg>Overview</button>';
+
+  function renderNode(n) {
+    var k = KIND[n.kind] || NEUTRAL, idx = ORDER.indexOf(n.id);
+    var out = EDGES.filter(function (e) { return e.from === n.id && edgeVisible(e); });
+    var inc = EDGES.filter(function (e) { return e.to === n.id && edgeVisible(e); });
+    var html = '<div style="display:flex;justify-content:space-between;align-items:center">' + BACK + '<span style="font-size:12px;color:var(--faint)">' + (idx >= 0 ? (idx + 1) + " of " + ORDER.length + " changed" : "context node") + '</span></div>';
+    html += '<div class="nd-head"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span class="chip" style="background:' + k.chipBg + ';color:' + k.color + '">' + esc(n.type + " · " + kindLabel(n)) + '</span>' +
+      '<span class="mono" style="font-size:12px"><span class="plus">' + (n.add ? "+" + n.add : "") + '</span> <span class="minus">' + (n.del ? "−" + n.del : "") + '</span></span>' + (n.layer ? '<span class="mono" style="font-size:11.5px;color:#8FB4EA">' + esc(n.layer) + '</span>' : "") + '</div>' +
+      '<div><div class="mono" style="font-size:12px;color:var(--muted)">' + esc(n.sub) + '</div><h2 class="nd-name" style="' + (n.kind === "removed" ? "text-decoration:line-through" : "") + '">' + esc(n.name) + '</h2></div>' +
+      (n.file ? '<a class="nd-file" href="' + BLOB + n.file + (n.line ? "#L" + n.line : "") + '">' + esc(n.file) + (n.line ? ":" + n.line : "") + ' ↗</a>' : "") + '</div>';
+    if (n.summary) html += '<p>' + esc(n.summary) + '</p>';
+    if (n.findings.length) html += '<div class="stack"><h3>Findings here</h3><div class="stack" style="gap:6px">' + n.findings.map(function (id) { var fd = FIND_BY_ID[id]; return '<div class="row-btn" style="cursor:default">' + sevPill(fd) + '<span class="f-body"><span class="f-title">' + esc(fd.title) + '</span><span class="f-text">' + esc(fd.text) + '</span></span></div>'; }).join("") + '</div></div>';
+    if (n.images && n.images.length) html += '<div class="stack"><h3>In the app</h3><div class="shots">' + n.images.map(function (img, i) {
+      return '<figure class="shot' + (img.wide ? " wide" : "") + '"><button type="button" data-shot="' + i + '" aria-label="Open screenshot"><img src="' + esc(img.src) + '" alt="" loading="lazy"><span class="side ' + (img.side === "before" ? "before" : "after") + '">' + (img.side === "before" ? "before · base" : "after · head") + '</span></button><figcaption>' + (img.cap || "") + '</figcaption></figure>';
+    }).join("") + '</div></div>';
+    if (n.sig) html += '<div class="stack"><h3>Signature &middot; interface</h3><div class="sig"><div class="b"><span>before</span><span>' + esc(n.sig[0]) + '</span></div><div class="a"><span>after</span><span>' + esc(n.sig[1]) + '</span></div></div></div>';
+    if (n.facts && n.facts.length) html += '<div class="stack"><h3>' + esc(n.factsTitle || "Key facts") + '</h3><dl class="kv">' + n.facts.map(function (s) { return '<dt>' + esc(s[0]) + '</dt><dd>' + esc(s[1]) + '</dd>'; }).join("") + '</dl></div>';
+    if (n.changes && n.changes.length) html += '<div class="stack"><h3>What changed</h3><ul class="changes">' + n.changes.map(function (c) { return '<li>' + esc(c) + '</li>'; }).join("") + '</ul></div>';
+    if (n.code) html += '<div class="stack"><h3>' + esc(n.codeTitle || "Code") + '</h3>' + codeBlock(n.code) + '</div>';
+    html += '<div class="stack"><h3>Depends on &middot; downstream</h3>' + relRows(out, "out") + '</div>';
+    html += '<div class="stack"><h3>Used by &middot; upstream</h3>' + relRows(inc, "in") + '</div>';
+    if (idx >= 0) html += '<div class="review-row"><button type="button" class="review-btn" id="toggle-review" aria-pressed="' + (!!S.reviewed[n.id]) + '"><svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true" style="fill:none;stroke:currentColor;stroke-width:2"><path d="M3 8.5 L6.5 12 L13 4.5"/></svg>' + (S.reviewed[n.id] ? "Reviewed &middot; undo" : "Mark as reviewed") + ' <kbd>R</kbd></button><button type="button" class="next-btn" id="next-unreviewed">Next unreviewed <kbd>E</kbd></button></div>';
+    rail.innerHTML = html;
+    $("go-back").addEventListener("click", clearSel);
+    var tr = $("toggle-review"); if (tr) tr.addEventListener("click", function () { toggleReviewed(n.id); });
+    var nx = $("next-unreviewed"); if (nx) nx.addEventListener("click", goNextUnreviewed);
+    Array.prototype.forEach.call(rail.querySelectorAll("[data-shot]"), function (btn) { btn.addEventListener("click", function () { openLightbox(n.images, +btn.dataset.shot); }); });
+  }
+
+  function renderEdge(e) {
+    var a = NODE[e.from], b = NODE[e.to], col = edgeColor(e), ek = EK[e.kind] || EK.unchanged, r = REL[e.rel] || REL.call;
+    var html = '<div>' + BACK + '</div>';
+    html += '<div class="stack" style="gap:10px"><div style="display:flex;gap:8px;flex-wrap:wrap"><span class="chip" style="background:#1C2028;color:' + col + '">' + esc(ek.label) + '</span><span class="chip" style="background:#232831;color:#C9CED6">' + esc(r.label) + '</span></div>' +
+      '<div class="stack" style="gap:4px;font-family:var(--mono)"><span style="font-size:15px;font-weight:600;color:#F2F3F5;word-break:break-word">' + esc(a.name) + '</span>' +
+      '<span style="display:flex;align-items:center;gap:6px;color:' + col + ';font-size:12px"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" style="fill:none;stroke:currentColor;stroke-width:1.8"><path d="M8 2 V14 M3.5 9.5 L8 14 L12.5 9.5"/></svg>' + esc(r.verb + (e.label ? " · " + e.label : "")) + '</span>' +
+      '<span style="font-size:15px;font-weight:600;color:#F2F3F5;word-break:break-word">' + esc(b.name) + '</span></div></div>';
+    html += '<p>' + esc(e.detail || (e.kind === "context" ? "Relationship inside the context code, shown so the changed code's dependencies are visible." : "Unchanged relationship, shown for context.")) + '</p>';
+    if (e.code) html += '<div class="stack"><h3>Call site</h3>' + codeBlock(e.code) + '</div>';
+    html += '<div class="grid2"><button type="button" data-go="' + esc(a.id) + '">Open ' + esc(a.name) + '</button><button type="button" data-go="' + esc(b.id) + '">Open ' + esc(b.name) + '</button></div>';
+    rail.innerHTML = html;
+    $("go-back").addEventListener("click", clearSel);
+  }
+
+  function renderRail() {
+    if (S.sel && S.sel.type === "node") renderNode(NODE[S.sel.id]);
+    else if (S.sel && S.sel.type === "edge") renderEdge(EDGES.find(function (x) { return x.id === S.sel.id; }));
+    else renderOverview();
+    Array.prototype.forEach.call(rail.querySelectorAll("[data-go]"), function (btn) { btn.addEventListener("click", function () { selectNode(btn.dataset.go, true); }); });
+    Array.prototype.forEach.call(rail.querySelectorAll(".calls [data-edge]"), function (btn) { btn.addEventListener("click", function () { selectEdge(btn.dataset.edge); }); });
+  }
+
+  // ---------- toolbar + chrome ----------
+  function renderToolbar() {
+    var modes = [{ id: "diff", label: "Diff", title: "Base and head overlaid, changes highlighted" }, { id: "before", label: "Before", title: "The graph on the base branch" }, { id: "after", label: "After", title: "The graph at this PR's head" }];
+    $("modes").innerHTML = modes.map(function (m) { return '<button type="button" data-mode="' + m.id + '" title="' + m.title + '" aria-pressed="' + (S.mode === m.id) + '">' + m.label + '</button>'; }).join("");
+    $("rels").innerHTML = USED_GROUPS.map(function (g) {
+      var sample = REL[Object.keys(REL).filter(function (r) { return REL[r].group === g; })[0]];
+      return '<button type="button" data-rel="' + g + '" aria-pressed="' + S.rels[g] + '"><svg class="sw" viewBox="0 0 18 6" aria-hidden="true"><path d="M1 3 H17" stroke="' + (S.rels[g] ? "#C9CED6" : "#5A6170") + '" stroke-width="2" stroke-dasharray="' + sample.dash + '" stroke-linecap="round" fill="none"/></svg>' + GROUP_LABEL[g] + '</button>';
+    }).join("");
+    Array.prototype.forEach.call($("modes").children, function (b) { b.addEventListener("click", function () { S.mode = b.dataset.mode; renderAll(); }); });
+    Array.prototype.forEach.call($("rels").children, function (b) { b.addEventListener("click", function () { S.rels[b.dataset.rel] = !S.rels[b.dataset.rel]; renderAll(); }); });
+    $("t-findings").hidden = !FINDINGS.length;
+    $("t-findings").setAttribute("aria-pressed", S.findings);
+    $("t-labels").setAttribute("aria-pressed", S.labels);
+    $("t-untouched").setAttribute("aria-pressed", S.hideUntouched);
+    var note = $("mode-note"), notes = D.modeNotes || {};
+    if (S.mode !== "diff" && notes[S.mode]) { note.hidden = false; note.textContent = notes[S.mode]; } else note.hidden = true;
+  }
+  function renderChrome() {
+    mainEl.classList.toggle("drawer-open", S.drawer);
+    appEl.classList.toggle("full", S.full);
+    $("legend").hidden = !S.legend;
+    $("z-legend").setAttribute("aria-pressed", S.legend);
+    $("z-full").setAttribute("aria-pressed", S.full);
+    $("z-full-text").textContent = S.full ? "Exit full view" : "Full view";
+    $("t-panel").setAttribute("aria-pressed", S.drawer);
+    var selEdge = S.sel && S.sel.type === "edge" ? EDGES.find(function (x) { return x.id === S.sel.id; }) : null;
+    $("rail-ttl").textContent = !S.sel ? "Review panel · overview" : S.sel.type === "node" ? "Node · " + NODE[S.sel.id].type : "Edge · " + (REL[selEdge.rel] || REL.call).label;
+    var rr = $("rail-review"), selId = S.sel && S.sel.type === "node" ? S.sel.id : null;
+    rr.hidden = !selId || ORDER.indexOf(selId) < 0;
+    if (!rr.hidden) { rr.innerHTML = (S.reviewed[selId] ? "✓ Reviewed" : "Mark reviewed") + " <kbd>R</kbd>"; rr.style.color = S.reviewed[selId] ? "#7BDCAB" : "var(--accent)"; }
+    var rc = ORDER.filter(function (id) { return S.reviewed[id]; }).length;
+    $("rev-text").textContent = "Reviewed " + rc + " of " + ORDER.length;
+    $("rev-bar").style.width = (ORDER.length ? Math.round(rc / ORDER.length * 100) : 0) + "%";
+  }
+  function renderAll() { renderChrome(); renderToolbar(); renderGraph(); renderRail(); }
+
+  $("t-findings").addEventListener("click", function () { S.findings = !S.findings; renderAll(); });
+  $("t-labels").addEventListener("click", toggleLabels);
+  $("t-untouched").addEventListener("click", toggleUntouched);
+  $("t-panel").addEventListener("click", togglePanel);
+  $("rail-close").addEventListener("click", closeDrawer);
+  $("rail-review").addEventListener("click", function () { if (S.sel && S.sel.type === "node") toggleReviewed(S.sel.id); });
+  $("rail-next").addEventListener("click", goNextUnreviewed);
+  $("z-in").addEventListener("click", function () { var r = vp.getBoundingClientRect(); zoomAt(1.2, r.width / 2, r.height / 2); });
+  $("z-out").addEventListener("click", function () { var r = vp.getBoundingClientRect(); zoomAt(1 / 1.2, r.width / 2, r.height / 2); });
+  $("z-reset").addEventListener("click", function () { var r = vp.getBoundingClientRect(); zoomAt(1 / S.zoom, r.width / 2, r.height / 2); });
+  $("z-fit").addEventListener("click", function () { fit(true); });
+  $("z-layout").addEventListener("click", function () { NODES.forEach(function (n) { n.x = n.x0; n.y = n.y0; }); renderGraph(); });
+  $("z-legend").addEventListener("click", toggleLegend);
+  $("z-full").addEventListener("click", toggleFull);
+
+  // ---------- lightbox ----------
+  var lb = $("lightbox"), lbSet = [], lbIdx = 0;
+  function openLightbox(set, i) { lbSet = set; lbIdx = i; showLb(); lb.hidden = false; $("lb-close").focus(); }
+  function showLb() { var it = lbSet[lbIdx]; $("lb-img").src = it.src; $("lb-cap").innerHTML = (it.side === "before" ? "Before · base — " : "After · head — ") + (it.cap || "") + ' <span style="color:var(--faint)">(' + (lbIdx + 1) + "/" + lbSet.length + ")</span>"; }
+  function closeLb() { lb.hidden = true; }
+  $("lb-close").addEventListener("click", closeLb);
+  $("lb-prev").addEventListener("click", function () { lbIdx = (lbIdx - 1 + lbSet.length) % lbSet.length; showLb(); });
+  $("lb-next").addEventListener("click", function () { lbIdx = (lbIdx + 1) % lbSet.length; showLb(); });
+  lb.addEventListener("click", function (ev) { if (ev.target === lb) closeLb(); });
+
+  // ---------- keys (left hand: R E A D X C, plus F L P) ----------
+  document.addEventListener("keydown", function (ev) {
+    if (!lb.hidden) {
+      if (ev.key === "Escape") closeLb(); else if (ev.key === "ArrowLeft") $("lb-prev").click(); else if (ev.key === "ArrowRight") $("lb-next").click();
+      return;
+    }
+    if (ev.key === "Escape") { if (S.drawer) closeDrawer(); else if (S.full) toggleFull(); return; }
+    var tag = (ev.target && ev.target.tagName) || "";
+    if (ev.metaKey || ev.ctrlKey || ev.altKey || tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+    var k = ev.key.toLowerCase();
+    if (k === "f") toggleFull();
+    else if (k === "l") toggleLegend();
+    else if (k === "p") togglePanel();
+    else if (k === "x") toggleUntouched();
+    else if (k === "c") toggleLabels();
+    else if (k === "e") goNextUnreviewed();
+    else if (k === "a" && ORDER.length) selectNode(stepChanged(-1), true);
+    else if (k === "d" && ORDER.length) selectNode(stepChanged(1), true);
+    else if (k === "r" && S.sel && S.sel.type === "node") toggleReviewed(S.sel.id);
+  });
+
+  // ---------- boot ----------
+  renderLegend();
+  renderAll();
+  // A #node link opens that node after the first fit, so the fit can't zoom back out over it.
+  var h = (location.hash || "").replace("#", "");
+  requestAnimationFrame(function () { fit(false); if (h && NODE[h]) selectNode(h, true); });
+})();
+</script>

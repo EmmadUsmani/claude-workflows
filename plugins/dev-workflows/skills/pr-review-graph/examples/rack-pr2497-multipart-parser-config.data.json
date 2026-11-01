@@ -1,0 +1,1004 @@
+{
+  "pr": {
+    "repo": "rack/rack",
+    "number": 2497,
+    "title": "Support rack.request.config :multipart_parser",
+    "state": "merged",
+    "author": "jeremyevans",
+    "headRef": "rack-request-config-multipart-parser",
+    "baseRef": "main",
+    "headSha": "55f78e2844487c416912b60c4915f0f87c208d7e",
+    "baseSha": "412b7e5250612e8b23095eee65ee3268addb4776",
+    "additions": 62,
+    "deletions": 18,
+    "files": 4,
+    "commits": 1
+  },
+  "summary": "Makes the multipart parser configurable per request through rack.request.config, the way the query parser already is. The env-reading half of Rack::Multipart.parse_multipart moves into a new Rack::Multipart::Parser.parse_from_env, whose tempfile factory, buffer size and query parser come from overridable class methods; Rack::Request#form_pairs now calls multipart_parser.parse_from_env(env), defaulting to a Request::MultipartParser subclass that keeps the old ParamList output. Built with --explain: no review, so no findings.",
+  "note": "Code read at head 55f78e2844 (merged). Every edge cites a line at that SHA. No generated files or docs in the diff. BUFSIZE and TEMPFILE_FACTORY are folded into the default_* hooks that return them. No screenshots: a library PR with no visible surface.",
+  "contextLabel": "Rack env",
+  "lanes": [
+    {
+      "id": "request",
+      "label": "Request API",
+      "note": "Rack::Request"
+    },
+    {
+      "id": "config",
+      "label": "Request config",
+      "note": "private helpers"
+    },
+    {
+      "id": "multipart",
+      "label": "Multipart",
+      "note": "Rack::Multipart"
+    },
+    {
+      "id": "parser",
+      "label": "Multipart::Parser",
+      "note": "parse entry points"
+    },
+    {
+      "id": "hooks",
+      "label": "Parser defaults",
+      "note": "overridable hooks"
+    },
+    {
+      "id": "env",
+      "label": "Rack env",
+      "note": "env hash keys"
+    }
+  ],
+  "boundaries": [
+    {
+      "afterLane": 1,
+      "label": "Request | Multipart"
+    },
+    {
+      "afterLane": 4,
+      "label": "code | env hash"
+    }
+  ],
+  "stack": [],
+  "modeNotes": {
+    "before": "Request#form_pairs calls Multipart.parse_multipart(env, ParamList), which reads the env and calls Parser.parse itself.",
+    "after": "Request#form_pairs asks multipart_parser (config or Request::MultipartParser) to parse_from_env; parse_multipart is a one-line delegate."
+  },
+  "nodes": [
+    {
+      "id": "post",
+      "lane": "request",
+      "row": 0.0,
+      "type": "Method",
+      "name": "POST",
+      "sub": "request.rb · Request::Helpers",
+      "kind": "unchanged",
+      "file": "lib/rack/request.rb",
+      "line": 632,
+      "bullets": [
+        "Public entry: the parsed request body",
+        "Calls form_pairs, then expands pairs"
+      ],
+      "summary": "The public method apps call for body params. Untouched here; it reaches the changed code through form_pairs, so it is the call the new spec drives.",
+      "code": "c-post",
+      "codeTitle": "Context"
+    },
+    {
+      "id": "formPairs",
+      "lane": "request",
+      "row": 1.0,
+      "type": "Method",
+      "name": "form_pairs",
+      "sub": "request.rb · Request::Helpers",
+      "kind": "modified",
+      "file": "lib/rack/request.rb",
+      "line": 602,
+      "add": 1,
+      "del": 1,
+      "bullets": [
+        "Parses the body into key/value pairs",
+        "Now asks multipart_parser to parse"
+      ],
+      "summary": "Turns a form or multipart body into pairs and caches them in the env. The one-line change swaps the hard-wired Multipart.parse_multipart(env, ParamList) for multipart_parser.parse_from_env(env), which is what lets a request pick its own parser.",
+      "changes": [
+        "Multipart.parse_multipart(env, Multipart::ParamList) → multipart_parser.parse_from_env(env)"
+      ],
+      "sig": [
+        "form_pairs",
+        "form_pairs (unchanged)"
+      ],
+      "facts": [
+        [
+          "caches",
+          "RACK_REQUEST_FORM_PAIRS / FORM_ERROR"
+        ],
+        [
+          "falls back",
+          "urlencoded parse when parse_from_env returns nil"
+        ]
+      ],
+      "factsTitle": "Behaviour",
+      "code": "c-formPairs",
+      "codeTitle": "Diff"
+    },
+    {
+      "id": "reqParseMultipart",
+      "lane": "request",
+      "row": 4.0,
+      "type": "Method",
+      "name": "parse_multipart",
+      "sub": "request.rb · deprecated",
+      "kind": "unchanged",
+      "file": "lib/rack/request.rb",
+      "line": 790,
+      "bullets": [
+        "Deprecated private helper",
+        "Still routes via extract_multipart"
+      ],
+      "summary": "The deprecated Request#parse_multipart still goes through Multipart.extract_multipart, so it now lands on Parser.parse_from_env with the default parser rather than the request's configured one.",
+      "code": "c-reqParseMultipart",
+      "codeTitle": "Context"
+    },
+    {
+      "id": "specRequest",
+      "lane": "request",
+      "row": 6.0,
+      "type": "Spec",
+      "name": "spec_request.rb",
+      "sub": "test/spec_request.rb",
+      "kind": "added",
+      "file": "test/spec_request.rb",
+      "line": 735,
+      "add": 16,
+      "del": 0,
+      "bullets": [
+        "Configures a parser via rack.request.config",
+        "Overrides default_tempfile_factory"
+      ],
+      "summary": "One new example: a subclass of Request::MultipartParser whose default_tempfile_factory raises is passed as rack.request.config's :multipart_parser, and req.POST on a multipart body must raise that error. It proves the config is consulted and that the default_* hooks are honoured.",
+      "changes": [
+        "Adds \"should use the multipart_parser from environment for multipart parsing\""
+      ],
+      "code": "c-specRequest",
+      "codeTitle": "Added example"
+    },
+    {
+      "id": "configValue",
+      "lane": "config",
+      "row": 0.0,
+      "type": "Method",
+      "name": "config_value",
+      "sub": "request.rb · private",
+      "kind": "unchanged",
+      "file": "lib/rack/request.rb",
+      "line": 729,
+      "bullets": [
+        "Reads one key of rack.request.config",
+        "Already used by query_parser"
+      ],
+      "summary": "env.dig(RACK_REQUEST_CONFIG, key). Existing helper; the PR adds a second key (:multipart_parser) beside :query_parser.",
+      "code": "c-configValue",
+      "codeTitle": "Context"
+    },
+    {
+      "id": "multipartParser",
+      "lane": "config",
+      "row": 5.0,
+      "type": "Method",
+      "name": "multipart_parser",
+      "sub": "request.rb · private",
+      "kind": "added",
+      "file": "lib/rack/request.rb",
+      "line": 782,
+      "bullets": [
+        "Picks the parser class for this request",
+        "config :multipart_parser, else default"
+      ],
+      "summary": "New private method mirroring query_parser: returns config_value(:multipart_parser) or Request::MultipartParser. Whatever it returns only needs to respond to parse_from_env(env).",
+      "changes": [
+        "Adds multipart_parser"
+      ],
+      "sig": [
+        "—",
+        "multipart_parser → class responding to parse_from_env"
+      ],
+      "code": "c-multipartParser",
+      "codeTitle": "Added (with the query_parser it mirrors)"
+    },
+    {
+      "id": "requestMultipartParser",
+      "lane": "config",
+      "row": 7.0,
+      "type": "Class",
+      "name": "MultipartParser",
+      "sub": "request.rb · Request::Helpers",
+      "kind": "added",
+      "file": "lib/rack/request.rb",
+      "line": 775,
+      "bullets": [
+        "Default parser: Multipart::Parser subclass",
+        "Overrides default_query_parser"
+      ],
+      "summary": "The default multipart parser for a request. Its only change from Multipart::Parser is default_query_parser → ParamList, which keeps form_pairs receiving a pair list as before. A custom parser that subclasses Multipart::Parser directly inherits Utils.default_query_parser instead, so subclassing this class is the safe extension point.",
+      "changes": [
+        "Adds class MultipartParser < Multipart::Parser with self.default_query_parser"
+      ],
+      "facts": [
+        [
+          "superclass",
+          "Rack::Multipart::Parser"
+        ],
+        [
+          "overrides",
+          "self.default_query_parser → ParamList"
+        ]
+      ],
+      "factsTitle": "Class",
+      "code": "c-requestMultipartParser",
+      "codeTitle": "Added"
+    },
+    {
+      "id": "parseMultipart",
+      "lane": "multipart",
+      "row": 5.0,
+      "type": "Module fn",
+      "name": "parse_multipart",
+      "sub": "multipart.rb · Multipart",
+      "kind": "modified",
+      "file": "lib/rack/multipart.rb",
+      "line": 48,
+      "add": 1,
+      "del": 17,
+      "bullets": [
+        "Public multipart entry, kept for callers",
+        "Body moved out; now a one-line delegate"
+      ],
+      "summary": "Still the public module function (spec_multipart.rb calls it 84 times), but its 16-line body moved verbatim into Parser.parse_from_env. It now passes its params argument through as query_parser:.",
+      "changes": [
+        "Removes the env reads, Parser.parse call and RACK_TEMPFILES write",
+        "Adds Parser.parse_from_env(env, query_parser: params)"
+      ],
+      "sig": [
+        "parse_multipart(env, params = Utils.default_query_parser)",
+        "parse_multipart(env, params = Utils.default_query_parser)"
+      ],
+      "code": "c-parseMultipart",
+      "codeTitle": "Diff"
+    },
+    {
+      "id": "extractMultipart",
+      "lane": "multipart",
+      "row": 4.0,
+      "type": "Module fn",
+      "name": "extract_multipart",
+      "sub": "multipart.rb · Multipart",
+      "kind": "unchanged",
+      "file": "lib/rack/multipart.rb",
+      "line": 52,
+      "bullets": [
+        "Request-based wrapper",
+        "Calls parse_multipart(request.env)"
+      ],
+      "summary": "Unchanged wrapper used by the deprecated Request#parse_multipart. It ignores its params argument, so it always parses with the default query parser."
+    },
+    {
+      "id": "paramList",
+      "lane": "multipart",
+      "row": 2.0,
+      "type": "Class",
+      "name": "ParamList",
+      "sub": "multipart.rb · Multipart",
+      "kind": "unchanged",
+      "file": "lib/rack/multipart.rb",
+      "line": 25,
+      "bullets": [
+        "Collects multipart fields as pairs",
+        "QueryParser-shaped accumulator"
+      ],
+      "summary": "Pair-list accumulator with the QueryParser API (make_params, normalize_params). form_pairs used to pass it explicitly; now Request::MultipartParser returns it from default_query_parser.",
+      "code": "c-paramList",
+      "codeTitle": "Context"
+    },
+    {
+      "id": "specMultipart",
+      "lane": "multipart",
+      "row": 8.0,
+      "type": "Spec",
+      "name": "spec_multipart.rb",
+      "sub": "test/spec_multipart.rb",
+      "kind": "unchanged",
+      "file": "test/spec_multipart.rb",
+      "line": 92,
+      "bullets": [
+        "Existing suite, untouched",
+        "Pins the moved parse_multipart body"
+      ],
+      "summary": "Unchanged, but it is the regression net for the move: every Multipart.parse_multipart example now exercises Parser.parse_from_env.",
+      "code": "c-specMultipart",
+      "codeTitle": "Context (one of many)"
+    },
+    {
+      "id": "parseFromEnv",
+      "lane": "parser",
+      "row": 3.0,
+      "type": "Class method",
+      "name": "parse_from_env",
+      "sub": "multipart/parser.rb · Parser",
+      "kind": "added",
+      "file": "lib/rack/multipart/parser.rb",
+      "line": 149,
+      "bullets": [
+        "Env → MultipartInfo, then params",
+        "Body of the old parse_multipart"
+      ],
+      "summary": "The old parse_multipart body, moved: read rack.input, CONTENT_LENGTH and CONTENT_TYPE, choose tempfile factory and buffer size (env override, else the default_* hook), call parse, store tmp_files in rack.tempfiles and return params. The hooks are called on self, so a subclass's overrides apply.",
+      "changes": [
+        "Adds self.parse_from_env(env, query_parser: default_query_parser)",
+        "Parser::TEMPFILE_FACTORY / BUFSIZE → default_tempfile_factory / default_bufsize"
+      ],
+      "sig": [
+        "—",
+        "self.parse_from_env(env, query_parser: default_query_parser)"
+      ],
+      "facts": [
+        [
+          "raises",
+          "MissingInputError without rack.input"
+        ],
+        [
+          "writes",
+          "env[RACK_TEMPFILES]"
+        ],
+        [
+          "returns",
+          "info.params (nil when no boundary)"
+        ]
+      ],
+      "factsTitle": "Inputs · side effects",
+      "code": "c-parseFromEnv",
+      "codeTitle": "Added"
+    },
+    {
+      "id": "defaultTempfile",
+      "lane": "hooks",
+      "row": 6.0,
+      "type": "Class method",
+      "name": "default_tempfile_factory",
+      "sub": "multipart/parser.rb · Parser",
+      "kind": "added",
+      "file": "lib/rack/multipart/parser.rb",
+      "line": 137,
+      "bullets": [
+        "Hook: returns TEMPFILE_FACTORY",
+        "Override to change upload storage"
+      ],
+      "summary": "New overridable hook returning the TEMPFILE_FACTORY lambda. The new spec overrides it to refuse uploads. rack.multipart.tempfile_factory in the env still wins over it.",
+      "changes": [
+        "Adds self.default_tempfile_factory"
+      ],
+      "code": "c-defaultTempfile",
+      "codeTitle": "Added"
+    },
+    {
+      "id": "defaultBufsize",
+      "lane": "hooks",
+      "row": 7.0,
+      "type": "Class method",
+      "name": "default_bufsize",
+      "sub": "multipart/parser.rb · Parser",
+      "kind": "added",
+      "file": "lib/rack/multipart/parser.rb",
+      "line": 141,
+      "bullets": [
+        "Hook: returns BUFSIZE (1 MiB)",
+        "Overridable per parser subclass"
+      ],
+      "summary": "New overridable hook returning BUFSIZE. rack.multipart.buffer_size in the env still wins over it.",
+      "changes": [
+        "Adds self.default_bufsize"
+      ],
+      "code": "c-defaultBufsize",
+      "codeTitle": "Added"
+    },
+    {
+      "id": "defaultQueryParser",
+      "lane": "hooks",
+      "row": 4.0,
+      "type": "Class method",
+      "name": "default_query_parser",
+      "sub": "multipart/parser.rb · Parser",
+      "kind": "added",
+      "file": "lib/rack/multipart/parser.rb",
+      "line": 145,
+      "bullets": [
+        "Hook: Utils.default_query_parser",
+        "Request::MultipartParser overrides it"
+      ],
+      "summary": "New hook that supplies parse_from_env's query_parser: default. On the base class it returns Utils.default_query_parser (hash output); Request::MultipartParser overrides it with ParamList (pair output).",
+      "changes": [
+        "Adds self.default_query_parser"
+      ],
+      "code": "c-defaultQueryParser",
+      "codeTitle": "Added"
+    },
+    {
+      "id": "parserParse",
+      "lane": "parser",
+      "row": 2.0,
+      "type": "Class method",
+      "name": "parse",
+      "sub": "multipart/parser.rb · Parser",
+      "kind": "unchanged",
+      "file": "lib/rack/multipart/parser.rb",
+      "line": 169,
+      "bullets": [
+        "The actual multipart state machine",
+        "Signature unchanged"
+      ],
+      "summary": "Unchanged six-argument parse. Its caller moved from Multipart.parse_multipart to Parser.parse_from_env.",
+      "code": "c-parserParse",
+      "codeTitle": "Context"
+    },
+    {
+      "id": "utilsDefaultQP",
+      "lane": "hooks",
+      "row": 5.0,
+      "type": "Accessor",
+      "name": "default_query_parser",
+      "sub": "utils.rb · Utils",
+      "kind": "unchanged",
+      "file": "lib/rack/utils.rb",
+      "line": 29,
+      "bullets": [
+        "Process-wide QueryParser",
+        "Default for parse_multipart's params"
+      ],
+      "summary": "Rack::Utils.default_query_parser, a module attr_accessor. Already the default argument of parse_multipart; now also what Parser.default_query_parser returns."
+    },
+    {
+      "id": "envConfig",
+      "lane": "env",
+      "row": 0.0,
+      "type": "Env key",
+      "name": "rack.request.config",
+      "sub": "RACK_REQUEST_CONFIG",
+      "kind": "context",
+      "file": "lib/rack/constants.rb",
+      "line": 59,
+      "bullets": [
+        "Per-request config hash",
+        "New key: :multipart_parser"
+      ],
+      "summary": "A hash in the env that middleware or the server sets to configure Rack::Request. Before this PR it carried :query_parser; it now also carries :multipart_parser."
+    },
+    {
+      "id": "envBody",
+      "lane": "env",
+      "row": 2.0,
+      "type": "Env keys",
+      "name": "rack.input · CONTENT_*",
+      "sub": "RACK_INPUT, CONTENT_LENGTH/TYPE",
+      "kind": "context",
+      "file": "lib/rack/constants.rb",
+      "line": 47,
+      "bullets": [
+        "Request body stream and its headers",
+        "Read by parse_from_env"
+      ],
+      "summary": "The body IO and its length and content type. Read exactly as before, from the new location."
+    },
+    {
+      "id": "envMultipart",
+      "lane": "env",
+      "row": 3.0,
+      "type": "Env keys",
+      "name": "rack.multipart.*",
+      "sub": "TEMPFILE_FACTORY, BUFFER_SIZE",
+      "kind": "context",
+      "file": "lib/rack/constants.rb",
+      "line": 55,
+      "bullets": [
+        "Per-request tempfile factory, bufsize",
+        "Still override the default_* hooks"
+      ],
+      "summary": "rack.multipart.tempfile_factory and rack.multipart.buffer_size. When set they win over the parser class's default_* hooks, as they won over the constants before."
+    },
+    {
+      "id": "envTempfiles",
+      "lane": "env",
+      "row": 1.0,
+      "type": "Env key",
+      "name": "rack.tempfiles",
+      "sub": "RACK_TEMPFILES",
+      "kind": "context",
+      "file": "lib/rack/constants.rb",
+      "line": 43,
+      "bullets": [
+        "Uploaded tempfiles, for cleanup",
+        "Written by parse_from_env"
+      ],
+      "summary": "Where the parser records the tempfiles it created so Rack::TempfileReaper can close them. Written as before, from the new location."
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "from": "post",
+      "to": "formPairs",
+      "rel": "call",
+      "kind": "unchanged",
+      "label": "pairs = form_pairs"
+    },
+    {
+      "id": "e2",
+      "from": "formPairs",
+      "to": "multipartParser",
+      "rel": "call",
+      "kind": "added",
+      "label": "multipart_parser",
+      "detail": "form_pairs now asks the request which parser to use instead of naming Rack::Multipart.",
+      "code": "c-formPairs"
+    },
+    {
+      "id": "e3",
+      "from": "formPairs",
+      "to": "parseFromEnv",
+      "rel": "call",
+      "kind": "added",
+      "label": ".parse_from_env(env)",
+      "detail": "Called on whatever multipart_parser returned; the default class inherits parse_from_env from Multipart::Parser.",
+      "code": "c-formPairs"
+    },
+    {
+      "id": "e4",
+      "from": "formPairs",
+      "to": "parseMultipart",
+      "rel": "call",
+      "kind": "removed",
+      "label": "parse_multipart(env, ParamList)",
+      "detail": "The hard-wired call is gone; Request no longer goes through the Multipart module function.",
+      "code": "c-formPairs"
+    },
+    {
+      "id": "e5",
+      "from": "multipartParser",
+      "to": "configValue",
+      "rel": "call",
+      "kind": "added",
+      "label": "config_value(:multipart_parser)",
+      "detail": "Same lookup query_parser uses for :query_parser.",
+      "code": "c-multipartParser"
+    },
+    {
+      "id": "e6",
+      "from": "multipartParser",
+      "to": "requestMultipartParser",
+      "rel": "use",
+      "kind": "added",
+      "label": "|| MultipartParser",
+      "detail": "The fallback when rack.request.config has no :multipart_parser.",
+      "code": "c-multipartParser"
+    },
+    {
+      "id": "e7",
+      "from": "configValue",
+      "to": "envConfig",
+      "rel": "read",
+      "kind": "unchanged",
+      "label": "dig(RACK_REQUEST_CONFIG, key)"
+    },
+    {
+      "id": "e8",
+      "from": "requestMultipartParser",
+      "to": "defaultQueryParser",
+      "rel": "use",
+      "kind": "added",
+      "label": "overrides",
+      "detail": "class MultipartParser < Multipart::Parser redefines self.default_query_parser.",
+      "code": "c-requestMultipartParser"
+    },
+    {
+      "id": "e9",
+      "from": "requestMultipartParser",
+      "to": "paramList",
+      "rel": "use",
+      "kind": "added",
+      "label": "Rack::Multipart::ParamList",
+      "detail": "Returned from the override, so the default parse still yields pairs as the removed explicit argument did.",
+      "code": "c-requestMultipartParser"
+    },
+    {
+      "id": "e10",
+      "from": "parseMultipart",
+      "to": "parseFromEnv",
+      "rel": "call",
+      "kind": "added",
+      "label": "params",
+      "detail": "The module function now just delegates, passing its params argument through.",
+      "code": "c-parseMultipart"
+    },
+    {
+      "id": "e11",
+      "from": "parseMultipart",
+      "to": "parserParse",
+      "rel": "call",
+      "kind": "removed",
+      "label": "Parser.parse(io, …)",
+      "detail": "The direct call moved into parse_from_env along with the env reads.",
+      "code": "c-parseMultipart"
+    },
+    {
+      "id": "e12",
+      "from": "parseMultipart",
+      "to": "envMultipart",
+      "rel": "read",
+      "kind": "removed",
+      "label": "env[RACK_MULTIPART_*]",
+      "detail": "The env reads (and the RACK_TEMPFILES write) left parse_multipart for parse_from_env.",
+      "code": "c-parseMultipart"
+    },
+    {
+      "id": "e13",
+      "from": "parseMultipart",
+      "to": "utilsDefaultQP",
+      "rel": "use",
+      "kind": "unchanged",
+      "label": "params default"
+    },
+    {
+      "id": "e14",
+      "from": "extractMultipart",
+      "to": "parseMultipart",
+      "rel": "call",
+      "kind": "impacted",
+      "label": "parse_multipart(request.env)",
+      "detail": "Call site unchanged; the callee now delegates to Parser.parse_from_env."
+    },
+    {
+      "id": "e15",
+      "from": "reqParseMultipart",
+      "to": "extractMultipart",
+      "rel": "call",
+      "kind": "unchanged",
+      "label": "extract_multipart(self, …)"
+    },
+    {
+      "id": "e16",
+      "from": "parseFromEnv",
+      "to": "parserParse",
+      "rel": "call",
+      "kind": "added",
+      "label": "parse(io, …, query_parser)",
+      "detail": "Same six arguments the old parse_multipart passed, with query_parser from the keyword.",
+      "code": "c-parseFromEnv"
+    },
+    {
+      "id": "e17",
+      "from": "parseFromEnv",
+      "to": "defaultTempfile",
+      "rel": "call",
+      "kind": "added",
+      "label": "|| default_tempfile_factory",
+      "detail": "Replaces Parser::TEMPFILE_FACTORY; called on self so a subclass override applies.",
+      "code": "c-parseFromEnv"
+    },
+    {
+      "id": "e18",
+      "from": "parseFromEnv",
+      "to": "defaultBufsize",
+      "rel": "call",
+      "kind": "added",
+      "label": "|| default_bufsize",
+      "detail": "Replaces Parser::BUFSIZE.",
+      "code": "c-parseFromEnv"
+    },
+    {
+      "id": "e19",
+      "from": "parseFromEnv",
+      "to": "defaultQueryParser",
+      "rel": "call",
+      "kind": "added",
+      "label": "query_parser: default",
+      "detail": "Keyword default, evaluated on self when the caller passes none (form_pairs passes none).",
+      "code": "c-parseFromEnv"
+    },
+    {
+      "id": "e20",
+      "from": "parseFromEnv",
+      "to": "envBody",
+      "rel": "read",
+      "kind": "added",
+      "label": "env[RACK_INPUT], CONTENT_*",
+      "detail": "Moved from parse_multipart unchanged.",
+      "code": "c-parseFromEnv"
+    },
+    {
+      "id": "e21",
+      "from": "parseFromEnv",
+      "to": "envMultipart",
+      "rel": "read",
+      "kind": "added",
+      "label": "env[RACK_MULTIPART_*]",
+      "detail": "Env overrides still win over the default_* hooks.",
+      "code": "c-parseFromEnv"
+    },
+    {
+      "id": "e22",
+      "from": "parseFromEnv",
+      "to": "envTempfiles",
+      "rel": "write",
+      "kind": "added",
+      "label": "env[RACK_TEMPFILES] =",
+      "detail": "Moved from parse_multipart unchanged.",
+      "code": "c-parseFromEnv"
+    },
+    {
+      "id": "e23",
+      "from": "defaultQueryParser",
+      "to": "utilsDefaultQP",
+      "rel": "call",
+      "kind": "added",
+      "label": "Utils.default_query_parser",
+      "detail": "Base-class default; Request::MultipartParser overrides it.",
+      "code": "c-defaultQueryParser"
+    },
+    {
+      "id": "e24",
+      "from": "specRequest",
+      "to": "multipartParser",
+      "rel": "test",
+      "kind": "added",
+      "label": "config {multipart_parser:}",
+      "detail": "Drives req.POST with rack.request.config naming a custom parser.",
+      "code": "c-specRequest"
+    },
+    {
+      "id": "e25",
+      "from": "specRequest",
+      "to": "requestMultipartParser",
+      "rel": "test",
+      "kind": "added",
+      "label": "Class.new(MultipartParser)",
+      "detail": "Subclasses the default parser so ParamList output is kept.",
+      "code": "c-specRequest"
+    },
+    {
+      "id": "e26",
+      "from": "specRequest",
+      "to": "defaultTempfile",
+      "rel": "test",
+      "kind": "added",
+      "label": "raises \"no uploads allowed\"",
+      "detail": "Overrides the hook and asserts the error surfaces, proving parse_from_env calls it on self.",
+      "code": "c-specRequest"
+    },
+    {
+      "id": "e27",
+      "from": "specMultipart",
+      "to": "parseMultipart",
+      "rel": "test",
+      "kind": "impacted",
+      "label": "Multipart.parse_multipart(env)",
+      "detail": "Unchanged examples now cover the moved body through the delegate."
+    }
+  ],
+  "findings": [],
+  "order": [
+    "formPairs",
+    "multipartParser",
+    "requestMultipartParser",
+    "parseFromEnv",
+    "defaultTempfile",
+    "defaultBufsize",
+    "defaultQueryParser",
+    "parseMultipart",
+    "specRequest"
+  ],
+  "code": {
+    "c-formPairs": [
+      "@ request.rb:597",
+      " ",
+      "           # Otherwise, figure out how to parse the input:",
+      "           if rack_input.nil?",
+      "             set_header(RACK_REQUEST_FORM_PAIRS, [])",
+      "           elsif form_data? || parseable_data?",
+      "-            if pairs = Rack::Multipart.parse_multipart(env, Rack::Multipart::ParamList)",
+      "+            if pairs = multipart_parser.parse_from_env(env)",
+      "               set_header RACK_REQUEST_FORM_PAIRS, pairs",
+      "             else",
+      "               # Add 2 bytes. One to check whether it is over the limit, and a second",
+      "               # in case the slice! call below removes the last byte"
+    ],
+    "c-post": [
+      "@ request.rb:632",
+      "       def POST",
+      "         if form_hash = get_header(RACK_REQUEST_FORM_HASH)",
+      "           return form_hash",
+      "         elsif error = get_header(RACK_REQUEST_FORM_ERROR)",
+      "           raise error.class, error.message, cause: error.cause",
+      "         end",
+      " ",
+      "         pairs = form_pairs",
+      "         set_header RACK_REQUEST_FORM_HASH, expand_param_pairs(pairs)",
+      "       end"
+    ],
+    "c-multipartParser": [
+      "@ request.rb (the pattern it mirrors):770",
+      "       def query_parser",
+      "         @query_parser || config_value(:query_parser) || Utils.default_query_parser",
+      "       end",
+      "@ request.rb:782",
+      "+      def multipart_parser",
+      "+        config_value(:multipart_parser) || MultipartParser",
+      "+      end"
+    ],
+    "c-requestMultipartParser": [
+      "@ request.rb:774",
+      "+      # The default multipart parser",
+      "+      class MultipartParser < Multipart::Parser",
+      "+        # The default query parser used by the multipart parser.",
+      "+        def self.default_query_parser",
+      "+          Rack::Multipart::ParamList",
+      "+        end",
+      "+      end"
+    ],
+    "c-configValue": [
+      "@ request.rb:729",
+      "       def config_value(key)",
+      "         env.dig(RACK_REQUEST_CONFIG, key)",
+      "       end"
+    ],
+    "c-reqParseMultipart": [
+      "@ request.rb:790",
+      "       def parse_multipart",
+      "         warn \"Rack::Request#parse_multipart is deprecated and will be removed in a future version of Rack.\", uplevel: 1",
+      "         Rack::Multipart.extract_multipart(self, query_parser)",
+      "       end"
+    ],
+    "c-parseMultipart": [
+      "@ multipart.rb:47",
+      "     class << self",
+      "       def parse_multipart(env, params = Rack::Utils.default_query_parser)",
+      "-        unless io = env[RACK_INPUT]",
+      "-          raise MissingInputError, \"Missing input stream!\"",
+      "-        end",
+      "-",
+      "-        if content_length = env['CONTENT_LENGTH']",
+      "-          content_length = content_length.to_i",
+      "-        end",
+      "-",
+      "-        content_type = env['CONTENT_TYPE']",
+      "-",
+      "-        tempfile = env[RACK_MULTIPART_TEMPFILE_FACTORY] || Parser::TEMPFILE_FACTORY",
+      "-        bufsize = env[RACK_MULTIPART_BUFFER_SIZE] || Parser::BUFSIZE",
+      "-",
+      "-        info = Parser.parse(io, content_length, content_type, tempfile, bufsize, params)",
+      "-        env[RACK_TEMPFILES] = info.tmp_files",
+      "-",
+      "-        return info.params",
+      "+        Parser.parse_from_env(env, query_parser: params)",
+      "       end",
+      " ",
+      "       def extract_multipart(request, params = Rack::Utils.default_query_parser)",
+      "         parse_multipart(request.env)",
+      "       end",
+      " "
+    ],
+    "c-parseFromEnv": [
+      "@ multipart/parser.rb:149",
+      "+      def self.parse_from_env(env, query_parser: default_query_parser)",
+      "+        unless io = env[RACK_INPUT]",
+      "+          raise MissingInputError, \"Missing input stream!\"",
+      "+        end",
+      "+",
+      "+        if content_length = env['CONTENT_LENGTH']",
+      "+          content_length = content_length.to_i",
+      "+        end",
+      "+",
+      "+        content_type = env['CONTENT_TYPE']",
+      "+",
+      "+        tempfile = env[RACK_MULTIPART_TEMPFILE_FACTORY] || default_tempfile_factory",
+      "+        bufsize = env[RACK_MULTIPART_BUFFER_SIZE] || default_bufsize",
+      "+",
+      "+        info = parse(io, content_length, content_type, tempfile, bufsize, query_parser)",
+      "+        env[RACK_TEMPFILES] = info.tmp_files",
+      "+",
+      "+        return info.params",
+      "+      end"
+    ],
+    "c-defaultTempfile": [
+      "@ multipart/parser.rb:56",
+      "       TEMPFILE_FACTORY = lambda { |filename, content_type|",
+      "         extension = ::File.extname(filename.gsub(\"\\0\", '%00'))[0, 129]",
+      " ",
+      "         Tempfile.new([\"RackMultipart\", extension])",
+      "       }",
+      "@ multipart/parser.rb:137",
+      "+      def self.default_tempfile_factory",
+      "+        TEMPFILE_FACTORY",
+      "+      end"
+    ],
+    "c-defaultBufsize": [
+      "@ multipart/parser.rb:54",
+      "       BUFSIZE = 1_048_576",
+      "@ multipart/parser.rb:141",
+      "+      def self.default_bufsize",
+      "+        BUFSIZE",
+      "+      end"
+    ],
+    "c-defaultQueryParser": [
+      "@ multipart/parser.rb:145",
+      "+      def self.default_query_parser",
+      "+        Rack::Utils.default_query_parser",
+      "+      end"
+    ],
+    "c-parserParse": [
+      "@ multipart/parser.rb:169",
+      "       def self.parse(io, content_length, content_type, tmpfile, bufsize, qp)",
+      "         return EMPTY if 0 == content_length",
+      " ",
+      "         boundary = parse_boundary content_type",
+      "         return EMPTY unless boundary",
+      " ",
+      "         if PARSER_BYTESIZE_LIMIT && content_length && content_length > PARSER_BYTESIZE_LIMIT",
+      "           raise Error, \"multipart Content-Length #{content_length} exceeds limit of #{PARSER_BYTESIZE_LIMIT} bytes\""
+    ],
+    "c-paramList": [
+      "@ multipart.rb:22",
+      "     # Accumulator for multipart form data, conforming to the QueryParser API.",
+      "     # In future, the Parser could return the pair list directly, but that would",
+      "     # change its API.",
+      "     class ParamList # :nodoc:",
+      "       def self.make_params",
+      "         new",
+      "       end",
+      " ",
+      "       def self.normalize_params(params, key, value)",
+      "         params << [key, value]",
+      "       end",
+      " ",
+      "       def initialize",
+      "         @pairs = []",
+      "       end",
+      " ",
+      "       def <<(pair)",
+      "         @pairs << pair",
+      "       end",
+      " ",
+      "       def to_params_hash",
+      "         @pairs",
+      "       end",
+      "     end"
+    ],
+    "c-specRequest": [
+      "@ spec_request.rb:735",
+      "+  it \"should use the multipart_parser from environment for multipart parsing\" do",
+      "+    input = File.read(File.join(File.dirname(__FILE__), \"multipart\", \"filename_multi\"))",
+      "+    mp_parser = Class.new(Rack::Request::MultipartParser) do",
+      "+      def self.default_tempfile_factory",
+      "+        proc { raise \"no uploads allowed\" }",
+      "+      end",
+      "+    end",
+      "+",
+      "+    req = Rack::Request.new Rack::MockRequest.env_for(\"/\",",
+      "+                      \"rack.request.config\" => {multipart_parser: mp_parser},",
+      "+                      \"CONTENT_TYPE\" => \"multipart/form-data; boundary=AaB03x\",",
+      "+                      \"CONTENT_LENGTH\" => input.size,",
+      "+                      :input => input)",
+      "+    proc { req.POST }.must_raise(RuntimeError).message.must_equal \"no uploads allowed\"",
+      "+  end"
+    ],
+    "c-specMultipart": [
+      "@ spec_multipart.rb:92",
+      "   it \"allows requests within the total bytesize limit\" do",
+      "     with_multipart_limit(1024 * 1024) do",
+      "       env = Rack::MockRequest.env_for(\"/\", multipart_fixture(:text))",
+      "       params = Rack::Multipart.parse_multipart(env)",
+      "       params[\"submit-name\"].must_equal \"Larry\"",
+      "     end",
+      "   end"
+    ]
+  },
+  "slug": "rack-pr2497-review-graph",
+  "title": "rack#2497 Review Graph"
+}
