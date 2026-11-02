@@ -353,7 +353,7 @@ Hand the finished pack to **ship-pr** for the PR description and private-repo im
 - **`browser_navigate` blocks `file://`** ⇒ serve the directory with a Node one-liner
   (run from that directory, `PORT=<port>`; serves `index.html` for `/`, guards path traversal):
   ```sh
-  node -e 'const [h,f,p,x]=[require("http"),require("fs"),require("path"),{".html":"text/html",".js":"text/javascript",".css":"text/css",".json":"application/json",".png":"image/png",".svg":"image/svg+xml"}];h.createServer((q,r)=>{const u=decodeURIComponent(q.url.split("?")[0]);const t=p.join(process.cwd(),u.endsWith("/")?u+"index.html":u);if(!t.startsWith(process.cwd()))return r.writeHead(403).end();f.readFile(t,(e,d)=>e?r.writeHead(404).end():r.writeHead(200,{"content-type":x[p.extname(t)]||"application/octet-stream"}).end(d))}).listen(process.env.PORT||8000)'
+  node -e 'const [h,f,p,x]=[require("http"),require("fs"),require("path"),{".html":"text/html",".js":"text/javascript",".css":"text/css",".json":"application/json",".png":"image/png",".svg":"image/svg+xml"}];h.createServer((q,r)=>{const u=decodeURIComponent(q.url.split("?")[0]);const t=p.join(process.cwd(),u.endsWith("/")?u+"index.html":u);if(!t.startsWith(process.cwd()))return r.writeHead(403).end();f.readFile(t,(e,d)=>e?r.writeHead(404).end():r.writeHead(200,{"content-type":x[p.extname(t)]||"application/octet-stream"}).end(d))}).listen(process.env.PORT||8000,"127.0.0.1")'
   ```
   and use `http://127.0.0.1:<port>/…`. Ad hoc static servers are themselves sometimes blocked by the
   permission classifier ⇒ fall back to injecting the content into an already-permitted http

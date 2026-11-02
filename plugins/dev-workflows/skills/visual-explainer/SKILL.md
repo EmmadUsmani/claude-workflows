@@ -218,7 +218,7 @@ PID you started (other sessions run static servers too; never `pkill` by pattern
 
 ```bash
 PORT=$(node -e 'const s = require("net").createServer().listen(0, "127.0.0.1", () => { process.stdout.write(String(s.address().port)); s.close(); })')
-cd <page dir> && python3 -m http.server "$PORT" --bind 127.0.0.1 >/dev/null 2>&1 &
+cd <page dir> && PORT="$PORT" node -e 'const [h,f,p,x]=[require("http"),require("fs"),require("path"),{".html":"text/html",".js":"text/javascript",".css":"text/css",".json":"application/json",".png":"image/png",".svg":"image/svg+xml",".webp":"image/webp"}];h.createServer((q,r)=>{const u=decodeURIComponent(q.url.split("?")[0]);const t=p.join(process.cwd(),u.endsWith("/")?u+"index.html":u);if(!t.startsWith(process.cwd()))return r.writeHead(403).end();f.readFile(t,(e,d)=>e?r.writeHead(404).end():r.writeHead(200,{"content-type":x[p.extname(t)]||"application/octet-stream"}).end(d))}).listen(process.env.PORT||8000,"127.0.0.1")' >/dev/null 2>&1 &
 echo $! > /tmp/explainer-server.pid; sleep 1
 curl -s -o /dev/null -w '%{http_code}\n' "http://127.0.0.1:$PORT/<file>.html"
 ```

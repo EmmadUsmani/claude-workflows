@@ -249,7 +249,7 @@ screenshots, and the `note` says so and names the nodes that would benefit.
 
 ```bash
 node scripts/build.js <dir>/pr<n>.data.json            # errors stop it; read every warning
-cd <dir> && python3 -m http.server <free port> --bind 127.0.0.1   # file:// is blocked
+cd <dir> && PORT=<free port> node -e 'const [h,f,p,x]=[require("http"),require("fs"),require("path"),{".html":"text/html",".js":"text/javascript",".css":"text/css",".json":"application/json",".png":"image/png",".svg":"image/svg+xml",".webp":"image/webp"}];h.createServer((q,r)=>{const u=decodeURIComponent(q.url.split("?")[0]);const t=p.join(process.cwd(),u.endsWith("/")?u+"index.html":u);if(!t.startsWith(process.cwd()))return r.writeHead(403).end();f.readFile(t,(e,d)=>e?r.writeHead(404).end():r.writeHead(200,{"content-type":x[p.extname(t)]||"application/octet-stream"}).end(d))}).listen(process.env.PORT||8000,"127.0.0.1")'   # file:// is blocked
 ```
 
 Look once with Playwright at `http://127.0.0.1:<port>/<page>.html?v=1#<node-id>`. Bump `?v=` after a
