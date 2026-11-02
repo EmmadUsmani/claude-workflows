@@ -53,7 +53,7 @@ adding it to the settings section. Skills never guess a value for an outward-fac
 | `state_repo` | *(none)* | A private git repo for state when running off-laptop | cloud-runtime, firefighter-loop |
 | `demo_engine` | `~/projects/demo-reel` | The narrated demo-video engine repo | demo-video |
 
-_The Used by column is generated from the skills: `ruby scripts/settings_usage.rb`._
+_The Used by column is generated from the skills: `node scripts/settings_usage.js --write`._
 
 ## Conventions shared by every skill
 

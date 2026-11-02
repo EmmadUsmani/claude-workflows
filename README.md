@@ -103,12 +103,13 @@ Mode-bearing skills share one autonomy vocabulary — `--report-only` (default) 
 ## Development
 
 ```
-scripts/lint_skills.rb                      # structure, frontmatter, cross-references
-scripts/lint_skills.rb --denylist FILE      # also scan for private terms (keep FILE outside the repo)
+node scripts/lint_skills.js                      # structure, frontmatter, cross-references
+node scripts/lint_skills.js --denylist FILE      # also scan for private terms (keep FILE outside the repo)
+node scripts/settings_usage.js --check           # SETTINGS.md "Used by" matches the skills (--write fixes it)
 claude plugin validate plugins/dev-workflows
 ```
 
-`lint_skills.rb --denylist` takes a private file of case-insensitive regexes (one per line, optional `glob :: regex` scoping). Keep that file outside the repo — its whole point is to list terms that must never appear here.
+`lint_skills.js --denylist` takes a private file of case-insensitive regexes (one per line, optional `glob :: regex` scoping). Keep that file outside the repo — its whole point is to list terms that must never appear here.
 
 ### Adding another plugin
 

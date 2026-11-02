@@ -47,7 +47,7 @@ the dev-workflows plugin.
 ## Deliverables & placement
 - Code shape follows /code-style (abstraction barriers, logic at the domain level, declarative over imperative, sparse comments); run its self-review checklist before presenting a diff.
 - An ad-hoc HTML explainer or Claude Artifact that explains an issue or lays out a solution space follows /visual-explainer.
-- Ruby, not Python, for any script the user runs or reads (prod-console scripts are in the app's own language). Ad hoc local one-liners and internal validators can stay in whatever language is convenient.
+- Plain Node.js (built-ins only, runs as `node file.js`), not Ruby or Python, for any standalone script the user runs or reads. Code that runs inside an app (a Rails console, a Django shell) uses that app's language.
 - Personal workflows live in this plugin repo, not inside a project repo.
 - Scratch investigations go in one `<sandbox_dir>/adhoc/YYYY-MM-DD-slug/` per investigation; artifacts meant to persist go in `<sandbox_dir>/tickets/<topic>/`. Either way, commit it as you write it (see Commits).
 - Screenshots go to `<screenshots_dir>` (default `~/Desktop/<TICKET>/{before,after}/`).
