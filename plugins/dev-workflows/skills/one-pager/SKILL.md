@@ -49,7 +49,7 @@ component. REFERENCE.md §8 indexes the examples and maps the other genres onto 
   panel's key decision, in one to three lines, taken from the plan (its "because", its decision
   table, the alternative it rejected). Concise is fine; missing is not. A panel whose choice the
   plan never explains gets no invented reason: leave it, and list it in your report as "reason
-  not stated in the plan". `render.rb` reports such panels as `no-why` advice.
+  not stated in the plan". `render.js` reports such panels as `no-why` advice.
 - **Condense, don't invent structure.** No data model in the plan means no ERD on the sheet
   (substitute a panel, below). A method the plan never names doesn't appear in a trace.
 - **The status must be true today.** Plans go stale: PRs ship, ship differently, or get
@@ -65,7 +65,7 @@ component. REFERENCE.md §8 indexes the examples and maps the other genres onto 
   and reused pieces dashed and grey). RCA: red = the fault. Mechanism (existing code, nothing
   proposed): red = the surprise, the one step a reader would predict wrong. Never decorative. One red sentence per
   sheet (two at most) carries the point of the whole plan.
-- **The lint must pass and the PNG must be read.** `scripts/render.rb` lints overflow, clipping,
+- **The lint must pass and the PNG must be read.** `scripts/render.js` lints overflow, clipping,
   label overlaps, labels overrunning their boxes and font fallback. It can't see a line through a
   label drawn by a `polyline` or `path`, a cramped or empty quadrant, or text that's correct but
   misleading, so read the PNG.
@@ -76,7 +76,7 @@ component. REFERENCE.md §8 indexes the examples and maps the other genres onto 
   names are fine.
 - **Fragment-safe characters only.** Use HTML entities (`&mdash;`, `&rarr;`, `&middot;`) in
   HTML and CSS comments, `\u` escapes in JS. The Write tool turns `›` into the literal
-  character, so re-check after writes; `build_artifact.rb` refuses non-ASCII.
+  character, so re-check after writes; `build_artifact.js` refuses non-ASCII.
 - **Sandbox writes auto-commit** when `<sandbox_autocommit>` is on (the default) and
   `<sandbox_dir>` is a git repo: after each meaningful write there,
   `git -C <sandbox_dir> add <only your paths>` and commit, never asking (**sandbox-tool**).
@@ -251,7 +251,7 @@ Before any layout, list (in a scratch file if the plan is long):
 
 ## Phase 3 — compose the sheet
 
-1. **Scaffold:** `ruby <skill>/scripts/new_sheet.rb <dest>.html --mode new|revision` (copies the
+1. **Scaffold:** `node <skill>/scripts/new_sheet.js <dest>.html --mode new|revision` (copies the
    template with the right header block; refuses to overwrite). Keep the `<style>` design system
    and the lint script; replace every `REPLACE` (`grep -c REPLACE` should end at 0).
 2. **Header:** kicker (org or project · area · genre, e.g. "System plan", "Remediation plan",
@@ -279,9 +279,9 @@ one red-bordered key-WHY box for the decision the whole sheet turns on. Name the
 ## Phase 4 — render, lint, look
 
 ```bash
-ruby <skill>/scripts/render.rb <sheet>.html          # lint + <sheet>.png at 3360x2100
-ruby <skill>/scripts/render.rb <sheet>.html --out <scratch>/x.png   # PNG elsewhere
-ruby <skill>/scripts/render.rb <sheet>.html --lint-only
+node <skill>/scripts/render.js <sheet>.html          # lint + <sheet>.png at 3360x2100
+node <skill>/scripts/render.js <sheet>.html --out <scratch>/x.png   # PNG elsewhere
+node <skill>/scripts/render.js <sheet>.html --lint-only
 ```
 
 - Exit 1 lists issues: `panel-overflow`, `clipped-text`, `svg-text-overlap`,
@@ -299,7 +299,7 @@ ruby <skill>/scripts/render.rb <sheet>.html --lint-only
 
 ## Phase 5 — deliver
 
-1. `ruby <skill>/scripts/build_artifact.rb <sheet>.html` → `<sheet>.artifact.html` (fragment form,
+1. `node <skill>/scripts/build_artifact.js <sheet>.html` → `<sheet>.artifact.html` (fragment form,
    canvas scaled to the window, lint script dropped, refuses non-ASCII).
 2. Publish it with the Artifact tool (`file_path` = the `.artifact.html`, `icon: "diagram"`, a
    one-sentence `description`). It starts private; say so. Re-publishing the same path updates the
@@ -317,7 +317,7 @@ Corrections come as "move X", "this label is wrong", "emphasise Y". Change the H
 re-read the PNG, rebuild and re-publish from the same path (same URL), re-send the PNG. Fix the
 specific thing; don't redesign an approved sheet.
 
-An older sheet (built before the current template) gets `ruby <skill>/scripts/upgrade_sheet.rb <sheet>.html`
+An older sheet (built before the current template) gets `node <skill>/scripts/upgrade_sheet.js <sheet>.html`
 first: it syncs the lint script and adds any component CSS the sheet lacks (why notes, table,
 stack strip, callouts) without touching content (on a current sheet it is a no-op). Then add what
 the new rules ask for, starting with the whys.
@@ -325,7 +325,7 @@ the new rules ask for, starting with the whys.
 ## Verified gotchas
 
 - **A render that never returns was a Chrome helper holding the output pipe**, not the sheet:
-  crashpad and updater children outlive Chrome. `render.rb` runs Chrome in its own process
+  crashpad and updater children outlive Chrome. `render.js` runs Chrome in its own process
   group with a timeout and kills the group, and retries the lint once on `font-fallback` (a cold
   first run can lint before Google Fonts arrive).
 - **The lint doesn't see SVG text running into a neighbouring box**, only into its own, and it
@@ -347,7 +347,7 @@ the new rules ask for, starting with the whys.
 - **The revision table's DESCRIPTION cell clips past about 60 characters** of mono text; the lint
   reports it as `clipped-text`.
 - **A browser-automation MCP may only be allowed to write inside one configured root**, which is
-  why rendering goes through `render.rb` and headless Chrome rather than an MCP screenshot.
+  why rendering goes through `render.js` and headless Chrome rather than an MCP screenshot.
 - **zsh eats `:a`/`:h` after a variable** in `"$sha:path"`; write `"${sha}:path"` when reading git
   history.
 

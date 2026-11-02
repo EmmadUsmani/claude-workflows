@@ -29,7 +29,7 @@ One page that lets a reviewer see the whole PR at once and then walk it node by 
   edges kept beside their `added` replacements, `impacted` edges, and env keys as `context` nodes.
 
 Both validate with zero warnings. To build one, write to a scratch folder, not the repo:
-`ruby scripts/build.rb examples/<file>.data.json --out <sandbox_dir>/adhoc/<date>-review-graph-example/<name>.html`
+`node scripts/build.js examples/<file>.data.json --out <sandbox_dir>/adhoc/<date>-review-graph-example/<name>.html`
 
 `assets/template.html` is the page engine; you never edit it per PR. The scripts are part of the
 skill: run them by path, don't copy them into the output.
@@ -40,7 +40,7 @@ skill: run them by path, don't copy them into the output.
   and excerpts are copied from `git show <head>:<path>` / the diff, never from memory. An edge exists
   only if you read the line that creates the dependency (the call, the import + use, the render, the
   query, the enqueue). No "probably calls". An edge you can't cite is left out.
-- **Excerpts are cut by `scripts/excerpt.rb`, never hand-copied.** It keeps removed lines in place and
+- **Excerpts are cut by `scripts/excerpt.js`, never hand-copied.** It keeps removed lines in place and
   marks every hunk break, which hand copies get wrong.
 - **Scope is this PR.** Changed units are the nodes; untouched neighbours appear one hop out as
   `unchanged`, and code from lower stack layers or other systems as `context`. Don't graph the whole
@@ -52,15 +52,15 @@ skill: run them by path, don't copy them into the output.
   observation you make while reading the code goes in a node's `summary` as a fact ("a parser that
   subclasses X directly inherits Y instead"), not as a finding.
 - **Screenshots are real captures, boxed on the node's element.** Every screenshot goes through
-  `scripts/annotate.rb` with a box around the part that node renders or affects — one copy per node,
+  `scripts/annotate.js` with a box around the part that node renders or affects — one copy per node,
   because two nodes sharing a capture point at different parts of it. Captions describe only what the
   image shows: a toast that had already faded is not "two toasts".
-- **The validator must pass, and you look once before publishing.** `scripts/build.rb` checks every
+- **The validator must pass, and you look once before publishing.** `scripts/build.js` checks every
   reference; read its warnings too. Then one rendered look (Phase 8) — the validator can't see an
   unreadable cluster or a box on the wrong element.
 - **Private by default.** Publish as a private Claude Artifact. The page names a colleague's code and
   may carry review findings: never share it, post it, or link it on GitHub without the user asking.
-  The header carries the PR author's login and branch name (from `gh`, via `scaffold.rb`); they are
+  The header carries the PR author's login and branch name (from `gh`, via `scaffold.js`); they are
   already public on the PR, but they are one more reason the page stays private. If the user wants a
   shareable copy, blank `pr.author` and `pr.headRef` before building.
 - **Read the PR in a detached worktree, never by switching branches in a shared checkout**
@@ -79,7 +79,7 @@ skill: run them by path, don't copy them into the output.
 and emphasis from the user ("focus on the data path").
 
 ```bash
-ruby scripts/scaffold.rb <owner/repo> <number> <out-dir>   # data file with real PR metadata; lists files, tags [generated]/[docs]
+node scripts/scaffold.js <owner/repo> <number> <out-dir>   # data file with real PR metadata; lists files, tags [generated]/[docs]
 gh pr view <n> --repo <owner/repo> --json baseRefName,baseRefOid,headRefOid,mergedAt   # --repo: works outside a checkout
 git -C <repo> fetch origin pull/<n>/head
 git -C <repo> worktree add --detach <worktrees_dir>/pr<n>-graph <headRefOid>
@@ -88,7 +88,7 @@ git -C <repo> diff <baseRefOid>...<headRefOid> --stat     # must match the PR's 
 
 - **No local checkout?** A public or reviewable repo can be cloned just for this:
   `git clone --filter=blob:none <url> <scratch>/<repo>` fetches blobs on demand, so `git show` and
-  `excerpt.rb` work without downloading full history. Put the clone in its own empty directory.
+  `excerpt.js` work without downloading full history. Put the clone in its own empty directory.
 - **Base.** Diff against `baseRefOid`, not a branch name: it works for open, merged and stacked PRs,
   including a stacked child whose base branch was deleted after merging. Confirm with
   `git merge-base <baseRefOid> <headRefOid>`; if it isn't `baseRefOid`, diff from the merge-base and
@@ -112,7 +112,7 @@ changed unit that the diff doesn't touch, and the lower-layer API the PR consume
   small PR reaches the range through its one-hop context — rack/rack#2497 changes 4 files and graphs
   as 21 nodes, 12 of them untouched neighbours or env keys.
 - **Not nodes:** generated files (schema dumps, lockfiles, generated API types, snapshots) and docs
-  (`docs/`, READMEs, CHANGELOGs). `scaffold.rb` tags them; name them in the `note`.
+  (`docs/`, READMEs, CHANGELOGs). `scaffold.js` tags them; name them in the `note`.
 - **Tests:** a spec that pins a changed unit's behaviour gets a node with a `test` edge — on backend PRs
   the specs are much of the review. One node per spec file, not per example. An *untouched* suite that
   now exercises moved code is worth an `unchanged` node with an `impacted` test edge: it is the
@@ -142,7 +142,7 @@ nothing reads.
 For each node, read its code and list what it depends on. Each edge gets `rel` (REFERENCE.md §5), a
 change `kind`, a short `label` (≈ 32 chars; a verbatim identifier may run longer), and for changed
 edges a one-to-two sentence `detail` plus a call-site `code` excerpt. A `test` edge needs neither:
-its label ("4 HEAD + Response tests") and the spec node's summary carry it, and `build.rb` doesn't
+its label ("4 HEAD + Response tests") and the spec node's summary carry it, and `build.js` doesn't
 ask for one.
 
 | edge kind | When |
@@ -165,13 +165,13 @@ services, libraries and data pipelines). Add a `boundary` where a process or net
 (browser | server, app | engine, service | vendor, code | env). When one side of a full-stack PR is
 only 1–3 files, give it one lane.
 
-Give each node a `lane` (id or index) and a `row`. `build.rb` lays them out on a 300 × 160 px grid with
+Give each node a `lane` (id or index) and a `row`. `build.js` lays them out on a 300 × 160 px grid with
 232 × 120 px cards — so **an edge that skips a lane, or runs vertically inside one, passes under a card
 unless that row is empty.** Lay out with that in mind:
 
 - **Place by hand first, then optimize.** Put each callee beside its caller (same row, next lane),
   then run `--optimize-rows`. Optimizing a naive placement usually leaves a couple of hidden edges.
-  After any manual move, re-run `--optimize-rows` and `build.rb` again.
+  After any manual move, re-run `--optimize-rows` and `build.js` again.
 - Put a node on the row of what it talks to most; ≤ 8 cards per lane, empty rows are fine; `row` may be
   fractional or negative.
 - **One node that calls three or more siblings in its own lane** can't be laid out cleanly: at most two
@@ -182,7 +182,7 @@ unless that row is empty.** Lay out with that in mind:
 - Put each spec **in its target's lane, in rows below the main graph** (or directly beside it) rather
   than in a far-right Tests lane, whose edges would cross every card on their row.
 - A job a model enqueues still lives in the entry lane; expect that `async` edge to point left.
-- Then run `ruby scripts/build.rb <data> --optimize-rows`: it re-rows the lane-placed nodes to cut edges
+- Then run `node scripts/build.js <data> --optimize-rows`: it re-rows the lane-placed nodes to cut edges
   hidden under cards and saves the rows to the data file. Fix what's left by hand if it matters. If you
   regenerate the data file from a script, the script's rows overwrite the optimized ones — re-run it
   after every fill.
@@ -204,14 +204,14 @@ Per node (REFERENCE.md §2 has every field):
 - `facts` + `factsTitle` — the stack's key facts (state and hooks for a component; inputs, side effects
   and transaction boundaries for a service; columns, indexes and locks for a migration; queue, retries
   and idempotency for a job; arguments and auth for an endpoint).
-- `code` + `codeTitle` — cut with `excerpt.rb` (below), ≤ ~60 lines. Unchanged one-hop nodes may carry a
+- `code` + `codeTitle` — cut with `excerpt.js` (below), ≤ ~60 lines. Unchanged one-hop nodes may carry a
   short context excerpt when the dependency isn't obvious from the name.
 - `add` / `del` — per node; omit them when one file is split into several nodes.
 - `file` + `line` — link target at the head SHA.
 
 ```bash
 # excerpts.json: { "c-formPairs": [ { "path": "lib/rack/request.rb", "from": 597, "to": 606, "label": "request.rb" } ] }
-ruby scripts/excerpt.rb <repo> <baseRefOid> <headRefOid> excerpts.json --into <dir>/pr<n>.data.json
+node scripts/excerpt.js <repo> <baseRefOid> <headRefOid> excerpts.json --into <dir>/pr<n>.data.json
 ```
 
 Ranges are new-file line numbers (`"old": true` for a deleted file); removed lines inside a range come
@@ -226,7 +226,7 @@ numbering (`F1`…) — this page is for the reviewer, not the author. Findings 
 cards in the drawer, and the "Worth a close look" list (high and medium first). A fix that spans several
 nodes goes on the node where the first change lands, the rest in `alsoNodes`. When a finding's fix is
 an existing helper the code doesn't call yet (a `with_lock` wrapper, a `retry_with_backoff` util), add
-it as an `unchanged` node in its lane with no edge, and mention it in the finding — `build.rb`'s
+it as an `unchanged` node in its lane with no edge, and mention it in the finding — `build.js`'s
 "no edges" warning is expected there.
 
 ## Phase 7 — screenshots (PRs with a visible surface)
@@ -241,14 +241,14 @@ screenshots, and the `note` says so and names the nodes that would benefit.
 2. Read each image and measure a box `[x, y, w, h]` in its pixels around the node's element — the
    menu, not the page; the toast and the button that raised it. Use two boxes when the point is a
    relationship (the overflowing bar *and* the clipped column).
-3. Write `annotate.json` (REFERENCE.md §7) and run `ruby scripts/annotate.rb annotate.json`; it prints
+3. Write `annotate.json` (REFERENCE.md §7) and run `node scripts/annotate.js annotate.json`; it prints
    each output path for the node's `images[].src`.
 4. Spot-check the tightest boxes by opening the outputs.
 
 ## Phase 8 — build, look, publish
 
 ```bash
-ruby scripts/build.rb <dir>/pr<n>.data.json            # errors stop it; read every warning
+node scripts/build.js <dir>/pr<n>.data.json            # errors stop it; read every warning
 cd <dir> && python3 -m http.server <free port> --bind 127.0.0.1   # file:// is blocked
 ```
 
@@ -289,7 +289,7 @@ async (page) => {
 ```
 
 Publish with the Artifact tool: `file_path` = the page, `root` = its directory, `files` = the list
-`build.rb` printed, `icon: "graph"`, a one-sentence description. To update, rebuild and publish the
+`build.js` printed, `icon: "graph"`, a one-sentence description. To update, rebuild and publish the
 same `file_path`. Commit the sandbox paths. **`--no-publish`** stops after the look and reports the
 page path and `root` instead.
 
@@ -316,7 +316,7 @@ from where, and the keys: `R` reviewed · `E` next unreviewed · `A`/`D` prev/ne
 
 - **zsh ties `path` to `PATH`.** A shell loop variable named `path` makes every following command
   "not found". Name it `file_path`.
-- **`| head` kills a long-running script by SIGPIPE.** Don't pipe `annotate.rb` or `--optimize-rows` into
+- **`| head` kills a long-running script by SIGPIPE.** Don't pipe `annotate.js` or `--optimize-rows` into
   `head`; you get a partial result.
 - **WebP doesn't attach to GitHub comments.** Convert the annotated copies with `magick x.webp x.png`
   when a screenshot is going into a PR comment.
@@ -324,7 +324,7 @@ from where, and the keys: `R` reviewed · `E` next unreviewed · `A`/`D` prev/ne
   (the toast had faded). Look at the image before you caption it.
 - **A force-push between the review and the graph moves line numbers.** Re-run `gh pr view --json
   headRefOid` before building; if it moved, re-cut the excerpts from the new head.
-- **`build.rb` escapes `</` in the data**, so excerpts may contain `</script>`; never hand-paste JSON
+- **`build.js` escapes `</` in the data**, so excerpts may contain `</script>`; never hand-paste JSON
   into the page.
 - **`--optimize-rows` is a polish step, not a layout.** On a naive placement it typically still leaves a
   couple of hidden edges; place callees beside callers by hand, then optimize, then re-check.

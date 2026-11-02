@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<!-- The canvas size scripts/render.rb renders at. Keep it equal to .canvas width/height below. -->
+<!-- The canvas size scripts/render.js renders at. Keep it equal to .canvas width/height below. -->
 <meta name="one-pager:size" content="1680x1050">
 <title>API Rate Limiter Spec Sheet</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -447,7 +447,7 @@ HTTP/1.1 <span class="k">429 Too Many Requests</span>
 </div>
 
 <script>
-  // Self-check, read by scripts/render.rb. Runs only with ?lint in the URL; writes JSON into #one-pager-lint.
+  // Self-check, read by scripts/render.js. Runs only with ?lint in the URL; writes JSON into #one-pager-lint.
   (function () {
     if (!/[?&]lint\b/.test(location.search)) return;
     function snippet(el) { return (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 70); }

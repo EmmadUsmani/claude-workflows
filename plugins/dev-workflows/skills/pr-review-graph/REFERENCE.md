@@ -27,7 +27,7 @@ marks and the legend choice live in the viewer's localStorage, keyed `prgraph:<r
 
 ## 2. Data schema
 
-One JSON file. `scripts/scaffold.rb` writes the `pr` block from `gh`; everything else is yours.
+One JSON file. `scripts/scaffold.js` writes the `pr` block from `gh`; everything else is yours.
 
 ```jsonc
 {
@@ -78,7 +78,7 @@ One JSON file. `scripts/scaffold.rb` writes the `pr` block from `gh`; everything
 ```
 
 Code lines start with `+` added, `-` removed, a space for context, or `@` for a hunk header (shown
-as `@@ <text>`); `scripts/excerpt.rb` writes them. Captions (`cap`) may contain `<b>`; every other
+as `@@ <text>`); `scripts/excerpt.js` writes them. Captions (`cap`) may contain `<b>`; every other
 string is escaped.
 
 Field notes:
@@ -166,7 +166,7 @@ resolve) · Data (read, write) · Async · Tests. Only groups the PR uses appear
   `impacted` if the trigger's code didn't change.
 - ENV / credentials / a feature flag the new code branches on → a `context` node with a `read` edge.
 
-## 7. Screenshot annotation (`scripts/annotate.rb`)
+## 7. Screenshot annotation (`scripts/annotate.js`)
 
 ```json
 {
@@ -195,7 +195,7 @@ resolve) · Data (read, write) · Async · Tests. Only groups the PR uses appear
 - [ ] Every edge cites a line you read; changed edges have `detail` and, where useful, `code`.
 - [ ] Two bullets per card, ≤ 45 characters; names are real identifiers.
 - [ ] Every changed node has a summary and a verbatim excerpt.
-- [ ] Lanes read left → right in dependency order; `build.rb` reports no overlaps.
+- [ ] Lanes read left → right in dependency order; `build.js` reports no overlaps.
 - [ ] `order` walks entry → leaves.
 - [ ] Findings (if any) map to the node where the fix goes; high/med ones are the top of the drawer.
 - [ ] Every screenshot is boxed on its node's element, captioned only with what it shows.
@@ -210,4 +210,4 @@ resolve) · Data (read, write) · Async · Tests. Only groups the PR uses appear
 | `examples/rack-pr2497-multipart-parser-config.data.json` | **`--explain` mode.** rack/rack#2497, merged library PR: a public method body moved into a new class method with overridable default hooks, a new per-request config lookup, a default subclass, one new spec. Lanes Request API → Request config → Multipart → Multipart::Parser → Parser defaults → Rack env, boundaries `Request \| Multipart` and `code \| env hash` | 21 nodes, 27 edges, 15 excerpts, no findings, no screenshots, `lane` + `row` from `--optimize-rows`. Shows `removed` edges kept beside their `added` replacements, `impacted` edges into an unchanged caller and an unchanged spec suite, env keys as `context` nodes with `read`/`write` edges, and a subclass override as a `use` edge. Zero warnings |
 
 Neither example has screenshots (both PRs are libraries with no visible surface). For the
-`annotate.rb` spec format see §7; output paths go in `nodes[].images[].src` as in §2.
+`annotate.js` spec format see §7; output paths go in `nodes[].images[].src` as in §2.

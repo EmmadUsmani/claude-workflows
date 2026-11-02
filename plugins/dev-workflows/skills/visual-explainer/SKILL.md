@@ -22,10 +22,10 @@ invoked by it (and by **firefighter-loop** dispatches), not only by the user.
 
 **The shipped example** is `examples/rack-builder-stack/rack-builder-stack.html`: an `explain`
 page about existing code (how `Rack::Builder` turns `config.ru` into nested middleware, at
-rack/rack @ da90464), with its probe scripts and their output beside it and its one-sheet in
-one-pager's `examples/rack-builder-stack.new.html`. Serve it (Phase 4) and read it before
+rack/rack @ da90464), with the recorded output of the Ruby probes that checked its claims beside
+it and its one-sheet in one-pager's `examples/rack-builder-stack.new.html`. Serve it (Phase 4) and read it before
 writing your first page: verdict block, glossary, numbered `h2`s with claims, figures with
-measured captions, a simulator checked against a Ruby ground truth, the contents sidebar.
+measured captions, a simulator checked against a recorded Ruby ground truth, the contents sidebar.
 
 **Every explainer ships with a one-sheet.** Alongside the scrolling page, build a single
 full-screen spec sheet of the same subject with the **one-pager** skill: the page is for the
@@ -217,7 +217,7 @@ Mechanics that apply to both:
 PID you started (other sessions run static servers too; never `pkill` by pattern):
 
 ```bash
-PORT=$(ruby -rsocket -e 's = TCPServer.new("127.0.0.1", 0); print s.addr[1]; s.close')
+PORT=$(node -e 'const s = require("net").createServer().listen(0, "127.0.0.1", () => { process.stdout.write(String(s.address().port)); s.close(); })')
 cd <page dir> && python3 -m http.server "$PORT" --bind 127.0.0.1 >/dev/null 2>&1 &
 echo $! > /tmp/explainer-server.pid; sleep 1
 curl -s -o /dev/null -w '%{http_code}\n' "http://127.0.0.1:$PORT/<file>.html"
@@ -259,7 +259,7 @@ trusting any value it returns.
 5. Sweep for non-ASCII and normalize (mandatory for the fragment form, cheap insurance
    otherwise):
    ```bash
-   ruby -e 'p File.read(ARGV[0], encoding: "UTF-8").chars.select { |c| c.ord > 127 }.uniq.sort' <file>.html
+   node -e 'console.log([...new Set(require("fs").readFileSync(process.argv[1], "utf8"))].filter((c) => c.codePointAt(0) > 127).sort())' <file>.html
    ```
 6. **The contents sidebar** (snippet in REFERENCE.md §7; skip for a generator-built sampler):
    every non-mock `h2`/`h3` has an entry, no duplicate ids, and scrolling to a mid-page `h3` marks it `aria-current` with its
@@ -296,7 +296,7 @@ follow it, with the explainer and its sources as the input in place of a plan:
 - **Sources** are the page and what it cites (its README, scripts, JSON dumps, datafix reports).
   Prefer a production measurement over a dev-DB estimate when both exist, and label which one the
   sheet uses.
-- Run `render.rb` and read the PNG as one-pager requires; the explainer's Phase 4 doesn't cover
+- Run `render.js` and read the PNG as one-pager requires; the explainer's Phase 4 doesn't cover
   the sheet.
 
 ## Phase 5 — publish and keep in sync

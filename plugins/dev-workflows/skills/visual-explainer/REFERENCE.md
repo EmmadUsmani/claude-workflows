@@ -12,9 +12,10 @@ run through it: the **shipped example** (how `Rack::Builder` stacks middleware, 
 
 **One example ships with the skill:** `examples/rack-builder-stack/rack-builder-stack.html`, an
 `explain` page about existing code (how `Rack::Builder` turns `config.ru` into nested
-middleware, read at rack/rack @ da90464). Beside it are `probe.rb` / `sim_check.rb` and their
-`.out.txt` output, which back every measured caption and the Fig. 2 simulator; its one-sheet is
-one-pager's `examples/rack-builder-stack.new.html`. Serve it (Phase 4) and read it first.
+middleware, read at rack/rack @ da90464). Its claims were checked with two Ruby probes run against
+the cloned lib; the probes aren't shipped, but their recorded outputs are, beside the page
+(`probe.out.txt`, `sim_check.out.txt`), and back every measured caption and the Fig. 2 simulator.
+Its one-sheet is one-pager's `examples/rack-builder-stack.new.html`. Serve it (Phase 4) and read it first.
 
 After that, your own pages are the best prior art. They live under `<sandbox_dir>`:
 
@@ -210,9 +211,9 @@ Every claim carries its source, in one of these shapes:
 - **Endpoints:** the full URL, its auth posture, and a real payload excerpt with the
   load-bearing keys bolded. Pair it with a **"See it yourself"** `ul.srclist` of clickable raw
   URLs so the reader can check.
-- **Runnable commands** the reader can re-run themselves: the probe and its run line
-  (`ruby -I <checkout>/lib probe.rb`, as in the shipped example); `dig +norecurse @<resolver>
-  <host>` for the invented incident; a dry-run of the remediation
+- **Runnable commands** the reader can re-run themselves: the probe and its run line (the shipped
+  example's footer gives its probes' `ruby -I <checkout>/lib` line beside their recorded output);
+  `dig +norecurse @<resolver> <host>` for the invented incident; a dry-run of the remediation
   (`DnsRecords::Precreate.call(dry_run: true, hosts: %w[...])`).
 - **Provenance of shipped state:** branch names, PR links (`org/repo#<n>`, and what it is stacked
   on), commit SHAs with what they changed, spec counts from the run you did, log source names.
@@ -302,7 +303,7 @@ builds encoder options, so storage keys, caching and error handling stay exactly
 
 ```bash
 # serve on loopback, on a free port; remember the PID (file:// is blocked in Playwright)
-PORT=$(ruby -rsocket -e 's = TCPServer.new("127.0.0.1", 0); print s.addr[1]; s.close')
+PORT=$(node -e 'const s = require("net").createServer().listen(0, "127.0.0.1", () => { process.stdout.write(String(s.address().port)); s.close(); })')
 cd <page dir> && python3 -m http.server "$PORT" --bind 127.0.0.1 >/dev/null 2>&1 &
 echo $! > /tmp/explainer-server.pid; sleep 1
 curl -s -o /dev/null -w '%{http_code}\n' "http://127.0.0.1:$PORT/<file>.html"
@@ -336,16 +337,17 @@ async (page) => {
 
 ```bash
 # non-ASCII sweep (mandatory for the Artifact fragment form)
-ruby -e 'p File.read(ARGV[0], encoding: "UTF-8").chars.select { |c| c.ord > 127 }.uniq.sort' <file>.html
+node -e 'console.log([...new Set(require("fs").readFileSync(process.argv[1], "utf8"))].filter((c) => c.codePointAt(0) > 127).sort())' <file>.html
 ```
 
-```ruby
-# patch an HTML file safely — the anchor must occur exactly once
-path, old, new = "<file>.html", "<exact existing string>", "<replacement>"
-s = File.read(path, encoding: "UTF-8")
-n = s.scan(old).size
-abort "anchor found #{n} times, expected 1" unless n == 1
-File.write(path, s.sub(old) { new })
+```javascript
+// patch an HTML file safely — the anchor must occur exactly once (save as patch.js; node patch.js)
+const fs = require('fs');
+const [file, anchor, replacement] = ['<file>.html', '<exact existing string>', '<replacement>'];
+const text = fs.readFileSync(file, 'utf8');
+const count = text.split(anchor).length - 1;
+if (count !== 1) { console.error(`anchor found ${count} times, expected 1`); process.exit(1); }
+fs.writeFileSync(file, text.replace(anchor, () => replacement));
 ```
 
 ```javascript

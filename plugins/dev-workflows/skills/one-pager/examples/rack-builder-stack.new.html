@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<!-- The canvas size scripts/render.rb renders at. Keep it equal to .canvas width/height below. -->
+<!-- The canvas size scripts/render.js renders at. Keep it equal to .canvas width/height below. -->
 <meta name="one-pager:size" content="1680x1050">
 <title>Rack Builder Stack Sheet</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -159,7 +159,7 @@ ol.co code { font-family: var(--mono); font-size: 10px; color: var(--ink); }
         <div><span class="k">STATUS</span><span class="v sig">AS BUILT &middot; NOTHING PROPOSED</span></div>
         <div><span class="k">DELIVERY</span><span class="v">&mdash; existing behaviour of rack main</span></div>
         <div><span class="k">CODE READ AT</span><span class="v">rack/rack main @ da90464</span></div>
-        <div><span class="k">NUMBERS</span><span class="v">none &middot; behaviour from probe.rb runs</span></div>
+        <div><span class="k">NUMBERS</span><span class="v">none &middot; behaviour from Ruby probe runs</span></div>
       </div>
     </div>
 
@@ -360,7 +360,7 @@ ol.co code { font-family: var(--mono); font-size: 10px; color: var(--ink); }
           <rect x="288.5" y="108.5" width="162" height="40" fill="#fff" stroke="#16191d" stroke-width="0.75" stroke-dasharray="3 2"/>
           <text x="298" y="132" class="m" font-size="9.5">App (run)</text>
           <text x="0" y="232" font-size="10.8" fill="#4a5058">GET /api/users: A &#8594; URLMap &#8594; ApiApp.   GET /other: A &#8594; URLMap &#8594; C &#8594; App.</text>
-          <text x="0" y="246" font-size="10.8" fill="#4a5058">Moving use C above the map puts C outside the URLMap: both paths hit it (sim_check.rb).</text>
+          <text x="0" y="246" font-size="10.8" fill="#4a5058">Moving use C above the map puts C outside the URLMap: both paths hit it (sim_check).</text>
         </svg>
         <div class="why"><span class="lbl">WHY LONGEST PREFIX &middot; urlmap.rb:43-45, 71</span><p>Entries sort by path length, so '/a/b' is tried before '/a'; the rest must be empty or start with '/', so '/ab' is a 404.</p></div>
       </section>
@@ -374,7 +374,7 @@ ol.co code { font-family: var(--mono); font-size: 10px; color: var(--ink); }
             <li><span><b>Built once:</b> middleware are instantiated by <code>to_app</code>, not per request (spec :222).</span></li>
             <li><span><b>Builder#call rebuilds</b> every time; servers keep <code>to_app</code>&apos;s result.</span></li>
             <li><span><b>map &apos;/&apos;</b> replaces the outer run (builder.rb:251-252).</span></li>
-            <li><span><b>Why no spec for &ldquo;use after map&rdquo;:</b> none exists; probe.rb case 2 is the evidence.</span></li>
+            <li><span><b>Why no spec for &ldquo;use after map&rdquo;:</b> none exists; probe case 2 is the evidence.</span></li>
           </ul>
           <div></div>
           <div class="tb">
@@ -385,7 +385,7 @@ ol.co code { font-family: var(--mono); font-size: 10px; color: var(--ink); }
             <div><span class="k">STACK</span><span class="v">&mdash;</span></div>
             <div><span class="k">DATE</span><span class="v">2026-11-01</span></div>
             <div><span class="k">SHEET</span><span class="v">1 OF 1 &middot; NTS</span></div>
-            <div class="w3"><span class="k">SOURCE</span><span class="v">rack-builder-stack.html &middot; probe.rb + sim_check.rb &middot; rack main @ da90464</span></div>
+            <div class="w3"><span class="k">SOURCE</span><span class="v">rack-builder-stack.html &middot; probe + sim_check outputs &middot; rack main @ da90464</span></div>
           </div>
         </div>
       </section>
@@ -395,7 +395,7 @@ ol.co code { font-family: var(--mono); font-size: 10px; color: var(--ink); }
 </div>
 
 <script>
-  // Self-check, read by scripts/render.rb. Runs only with ?lint in the URL; writes JSON into #one-pager-lint.
+  // Self-check, read by scripts/render.js. Runs only with ?lint in the URL; writes JSON into #one-pager-lint.
   (function () {
     if (!/[?&]lint\b/.test(location.search)) return;
     function snippet(el) { return (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 70); }

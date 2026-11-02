@@ -178,7 +178,7 @@ h1[id], h2[id], h3[id] { scroll-margin-top: var(--toc-offset); }
     <div class="chips">
       <span class="chip"><span>Code read at</span><b>main @ da90464</b></span>
       <span class="chip"><span>State</span><b>Behaviour of rack main today &middot; no fix involved</b></span>
-      <span class="chip"><span>Evidence</span><b>probe.rb &middot; 6 cases reproduced</b></span>
+      <span class="chip"><span>Evidence</span><b>Ruby probe &middot; 6 cases reproduced</b></span>
     </div>
     <div class="verdict" role="note">
       <b class="k">The answer</b>
@@ -464,11 +464,11 @@ def use(middleware, ...)
 
   <footer class="col">
     <p><b>Sources</b>, all at <code>rack/rack</code> <code>da90464e3fa93e3cb49dc2d4ede798e6c6b70b4f</code>: <code>lib/rack/builder.rb</code>, <code>lib/rack/urlmap.rb</code>, <code>lib/rack/body_proxy.rb</code>, <code>lib/rack/lock.rb</code>, <code>lib/rack/common_logger.rb</code>, <code>lib/rack/runtime.rb</code>, <code>lib/rack/content_length.rb</code>, <code>lib/rack/mock_request.rb</code>, <code>SPEC.rdoc</code>, <code>test/spec_builder.rb</code>.</p>
+    <p><b>Evidence.</b> This page&#39;s claims were checked with two Ruby probes run against the cloned lib (<code>ruby -I &lt;rack checkout&gt;/lib</code>): one ran six <code>config.ru</code> cases, the other the simulator&#39;s configs and paths. The probes themselves are not shipped; their recorded outputs are.</p>
     <p><b>In this directory:</b></p>
     <ul>
-      <li><code>probe.rb</code>: six cases run against the cloned lib (<code>ruby -I &lt;rack checkout&gt;/lib probe.rb</code>)</li>
-      <li><code>sim_check.rb</code> / <code>sim_check.out.txt</code>: ground truth for the simulator in Fig. 2</li>
-      <li><code>probe.out.txt</code>: its output, quoted on this page</li>
+      <li><code>probe.out.txt</code>: the recorded output of the six cases, quoted on this page</li>
+      <li><code>sim_check.out.txt</code>: the recorded ground truth for the simulator in Fig. 2</li>
       <li>The one-sheet of this page: the one-pager skill&#39;s <code>examples/rack-builder-stack.new.html</code></li>
     </ul>
     <p>Written 1 Nov 2026.</p>
