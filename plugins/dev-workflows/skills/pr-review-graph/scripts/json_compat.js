@@ -8,7 +8,7 @@
 // comparisons on a Number object work as usual; only `===` and truthiness differ, so compare
 // with `==`/`<` and test presence with `== null`.
 
-const FLOAT = '\u0000float:';
+const FLOAT = '\u0000f:'; // internal marker for floats that must keep their ".0"
 
 // JSON.parse, except that a whole-valued float (`2.0`, `1e3`) becomes `new Number(...)`.
 function parse(text) {

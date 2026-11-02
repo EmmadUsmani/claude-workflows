@@ -292,6 +292,10 @@ const USAGE = `usage: distill.js <outdir> [--since YYYY-MM-DD] [--project <subst
 
 function main() {
   const args = process.argv.slice(2);
+  if (args.includes('--help') || args.includes('-h')) {
+    process.stdout.write(USAGE + '\n');
+    process.exit(0);
+  }
   if (!args.length || args[0].startsWith('--')) {
     process.stderr.write(USAGE + '\n');
     process.exit(1);

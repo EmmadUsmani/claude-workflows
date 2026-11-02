@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 'use strict';
 
+if (process.argv.slice(2).some((a) => a === '--help' || a === '-h')) {
+  console.log("usage: node annotate.js path/to/annotate.json");
+  process.exit(0);
+}
+
 // Draws a red highlight box around each node's element on its screenshots, and dims
 // the rest of the frame a little so the box reads at thumbnail size. One output per
 // (node, screenshot) pair, because two nodes sharing a screenshot point at different

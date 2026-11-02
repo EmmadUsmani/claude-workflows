@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 'use strict';
 
+if (process.argv.slice(2).some((a) => a === '--help' || a === '-h')) {
+  console.log("usage: node excerpt.js <repo> <base> <head> excerpts.json [--into data.json]");
+  process.exit(0);
+}
+
 // Cuts verbatim, diff-marked code excerpts for the data file's `code` block, so no excerpt is
 // ever hand-copied. Ranges are new-file line numbers; removed lines that sit inside a range are
 // kept in place (marked `-`). A file the PR didn't touch comes out as plain context; a file the PR

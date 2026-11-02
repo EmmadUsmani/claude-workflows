@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 'use strict';
 
+if (process.argv.slice(2).some((a) => a === '--help' || a === '-h')) {
+  console.log("usage: node chunk.js <digests dir> <out dir> [target bytes, default 230000]");
+  process.exit(0);
+}
+
 // Group digests into agent-sized work units (~TARGET bytes each).
 // Big digests are split at user-turn boundaries; small ones are batched together.
 // Writes chunks/<NN>.md plus chunks/plan.json.
@@ -15,6 +20,10 @@ const argv = process.argv.slice(1); // argv[0] is this script, like sys.argv
 const TARGET = argv.length > 3 ? int(argv[3]) : 230000;
 const HARD = Math.trunc(TARGET * 1.15);
 const [src, out] = [argv[1], argv[2]];
+if (!src || !out) {
+  console.error("usage: node chunk.js <digests dir> <out dir> [target bytes, default 230000]");
+  process.exit(1);
+}
 fs.mkdirSync(out, { recursive: true });
 let index = JSON.parse(readText(path.join(src, 'index.json')));
 // Keep small sessions (a short session can carry the one correction that matters): they simply

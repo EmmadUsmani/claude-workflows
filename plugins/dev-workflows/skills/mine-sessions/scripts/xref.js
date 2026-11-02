@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 'use strict';
 
+if (process.argv.slice(2).some((a) => a === '--help' || a === '-h')) {
+  console.log("usage: node xref.js <skills dir> [--external name,name,...] [--json]");
+  process.exit(0);
+}
+
 // Cross-reference audit for a skills directory.
 //
 // For every skills/<name>/SKILL.md (+ REFERENCE.md): which sibling skills it names (out-links),
@@ -15,6 +20,10 @@ const { len, sorted, dumps, readText, globDir, Counter } = require('./lib');
 
 const argv = process.argv.slice(1); // like sys.argv
 const skillsDir = argv[1];
+if (!skillsDir) {
+  console.error("usage: node xref.js <skills dir> [--external name,name,...] [--json]");
+  process.exit(1);
+}
 const external = new Set(argv.includes('--external') ? argv[argv.indexOf('--external') + 1].split(',') : []);
 for (const s of [ // commonly-installed skills / built-ins that are legitimate targets
   'code-review', 'simplify', 'security-review', 'artifact-design', 'artifact-diagramming',

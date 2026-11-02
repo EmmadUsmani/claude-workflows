@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 'use strict';
 
+if (process.argv.slice(2).some((a) => a === '--help' || a === '-h')) {
+  console.log("usage: node build.js graph.data.json [--out page.html] [--check] [--optimize-rows]");
+  process.exit(0);
+}
+
 // Builds the review-graph page from a data file (REFERENCE.md §2 is the schema).
 //
 // Lays out any node without explicit x/y from its lane and row, validates every

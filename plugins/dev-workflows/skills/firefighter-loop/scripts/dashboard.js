@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 'use strict';
 
+if (process.argv.slice(2).some((a) => a === '--help' || a === '-h')) {
+  console.log("usage: node dashboard.js <state.json> <out.html>");
+  process.exit(0);
+}
+
 // dashboard.js — render the firefighter state as the Artifact dashboard page.
 //
 //   R=${FF_STATE_DIR:-~/.local/state/firefighter-loop}

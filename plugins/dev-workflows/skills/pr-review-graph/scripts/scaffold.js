@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 'use strict';
 
+if (process.argv.slice(2).some((a) => a === '--help' || a === '-h')) {
+  console.log("usage: node scaffold.js <owner/repo> <pr-number> <out-dir>");
+  process.exit(0);
+}
+
 // Starts a review-graph data file from the PR's real metadata, so the header, links and
 // line counts are never hand-typed. Fill in lanes, nodes, edges and code next (SKILL.md Phase 2-4).
 //

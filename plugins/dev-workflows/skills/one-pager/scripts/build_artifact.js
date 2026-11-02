@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 'use strict';
 
+if (process.argv.slice(2).some((a) => a === '--help' || a === '-h')) {
+  console.log("usage: node build_artifact.js path/to/sheet.html   (writes path/to/sheet.artifact.html)");
+  process.exit(0);
+}
+
 // Builds the publishable Claude Artifact page from a one-pager sheet.
 //
 // The sheet is a full HTML document with a fixed-size .canvas (the PNG source). A published

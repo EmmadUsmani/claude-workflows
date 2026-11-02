@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 'use strict';
 
+if (process.argv.slice(2).some((a) => a === '--help' || a === '-h')) {
+  console.log("usage: node upgrade_sheet.js path/to/sheet.html [more sheets...]");
+  process.exit(0);
+}
+
 // Brings an existing sheet up to the current template without touching its content: replaces its
 // ?lint self-check script with the template's, and adds any component CSS block it lacks (why
 // notes, data table, stack strip, wireframe callouts).

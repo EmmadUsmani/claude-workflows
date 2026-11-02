@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 'use strict';
 
+if (process.argv.slice(2).some((a) => a === '--help' || a === '-h')) {
+  console.log("usage: node render.js [--dir <workdir>] [--per-group 6] [--groups \"G1=01,04,06;G2=02,03\"]");
+  process.exit(0);
+}
+
 // Render reports/NN.json into compact markdown group views for the cluster stage.
 //
 // usage: render.js [--dir <workdir>] [--per-group 6] [--groups "G1=01,04,06;G2=02,03"]

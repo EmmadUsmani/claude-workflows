@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 'use strict';
 
+if (process.argv.slice(2).some((a) => a === '--help' || a === '-h')) {
+  console.log("usage: node userturns.js <digests dir> <out dir> [--context 500]");
+  process.exit(0);
+}
+
 // Build a compact "user turns only" view from distilled digests, for targeted mining lenses
 // (code-style corrections, communication preferences, …) where the user's own words carry the
 // signal and the full tool trace is noise.
@@ -17,6 +22,10 @@ const { strip, len, slice, bytes, sorted, fixed, dumps, int, readText, globDir }
 
 const argv = process.argv.slice(1); // like sys.argv
 const [src, out] = [argv[1], argv[2]];
+if (!src || !out) {
+  console.error("usage: node userturns.js <digests dir> <out dir> [--context 500]");
+  process.exit(1);
+}
 const ctx = argv.includes('--context') ? int(argv[argv.indexOf('--context') + 1]) : 500;
 fs.mkdirSync(out, { recursive: true });
 

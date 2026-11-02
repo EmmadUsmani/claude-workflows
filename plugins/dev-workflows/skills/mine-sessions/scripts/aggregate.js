@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 'use strict';
 
+if (process.argv.slice(2).some((a) => a === '--help' || a === '-h')) {
+  console.log("usage: node aggregate.js [--dir <workdir>] [--expect N] [--names] [--merge]");
+  process.exit(0);
+}
+
 // Validate reports/*.json and build a compact cross-chunk aggregate for synthesis.
 // usage: aggregate.js [--dir <workdir>] [--expect N] [--names] [--merge]
 // <workdir> (default: cwd) is the scratch dir holding reports/*.json; --expect N lists any of
