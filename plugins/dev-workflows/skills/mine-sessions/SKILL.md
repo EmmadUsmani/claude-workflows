@@ -10,8 +10,8 @@ A deterministic pre-processing step plus a four-stage agent map-reduce. A full s
 dozen long sessions takes hours of wall-clock and millions of agent tokens (budget accordingly,
 and tell the user the rough cost before launching the fleet); it yields new skills, edits to
 existing ones, and a conventions file. Scripts and prompts
-live in this skill's base directory (printed when the skill loads): `scripts/{distill,chunk,render,aggregate,userturns,xref}.py`
-and `prompts/*_INSTRUCTIONS.md`. The scripts are internal tooling (Python, stdlib only).
+live in this skill's base directory (printed when the skill loads): `scripts/{distill,chunk,render,aggregate,userturns,xref}.js`
+(plus their shared `scripts/lib.js`) and `prompts/*_INSTRUCTIONS.md`. The scripts are internal tooling (plain Node.js 18+, built-ins only — no `npm install`).
 
 **Output target:** new skills go to `--out <dir>` if given, otherwise the `plugins/dev-workflows/skills/`
 of this plugin's **source checkout** (or whichever skills directory the user names). Ask once if
@@ -78,7 +78,7 @@ SINCE=$(cat "$STATE" 2>/dev/null || echo 1970-01-01)
 for d in ~/.claude/projects/*/; do echo "$(find "$d" -maxdepth 1 -name '*.jsonl' -newermt "$SINCE" | wc -l) sessions since $SINCE  $d"; done
 ```
 (Against a fixture, point the loop at the fixture root instead of `~/.claude/projects`, as
-`distill.py --projects-dir` does.)
+`distill.js --projects-dir` does.)
 A small incremental window (fewer than ~8 sessions) usually doesn't justify the full five-stage
 pipeline: distill, run extractors, and go straight to authoring/updating skills from the reports.
 With a single report there is nothing to cluster or synthesize — skip steps 5–6 and author from
@@ -94,7 +94,7 @@ listed in the system prompt.
 ## 1. Distill (deterministic, seconds)
 
 ```bash
-python3 <skill>/scripts/distill.py <workdir>/digests --since "$SINCE"     # add --project <substring> to scope
+node <skill>/scripts/distill.js <workdir>/digests --since "$SINCE"     # add --project <substring> to scope
 ```
 `--projects-dir <path>` points it at a copied archive or a test fixture instead of
 `~/.claude/projects`. Keeps: metadata (titles, dates, branches, tool counts), every real user
@@ -107,7 +107,7 @@ spending agents.
 ## 2. Chunk (deterministic)
 
 ```bash
-python3 <skill>/scripts/chunk.py <workdir>/digests <workdir>/chunks 230000
+node <skill>/scripts/chunk.js <workdir>/digests <workdir>/chunks 230000
 ```
 ~225 KB ≈ 55 K tokens per chunk: long sessions split at user-turn boundaries with a
 `PART i/N` banner, small ones (including very short sessions, which can hold the one correction
@@ -121,8 +121,8 @@ When mining for one specific thing the user *said* (code-style preferences, comm
 preferences, review habits) rather than for workflows, don't feed agents the full digests:
 
 ```bash
-python3 <skill>/scripts/userturns.py <workdir>/digests <workdir>/userturns --context 500
-python3 <skill>/scripts/chunk.py <workdir>/userturns <workdir>/ut_chunks 180000
+node <skill>/scripts/userturns.js <workdir>/digests <workdir>/userturns --context 500
+node <skill>/scripts/chunk.js <workdir>/userturns <workdir>/ut_chunks 180000
 ```
 Keeps every USER turn in full plus a 500-char tail of what Claude had just said; drops tool
 traces. ~10× smaller, so a handful of extractors instead of dozens. Write a lens-specific
@@ -142,8 +142,8 @@ Copy `prompts/*_INSTRUCTIONS.md` into `<workdir>` first, fill in `EXTRACT_INSTRU
 paragraph, and substitute any `<setting>` placeholders (e.g. `<sandbox_dir>`) with real paths — agents cannot resolve settings (who the user is, which repos, which product area). Pilot 4 chunks (one giant single
 session, one `[part i/N]`, two multi-session batches), then:
 ```bash
-python3 <skill>/scripts/aggregate.py --dir <workdir> --expect <N chunks>   # validates JSON, lists missing reports
-python3 <skill>/scripts/aggregate.py --dir <workdir> --names               # workflow-name distribution — themes show up here
+node <skill>/scripts/aggregate.js --dir <workdir> --expect <N chunks>   # validates JSON, lists missing reports
+node <skill>/scripts/aggregate.js --dir <workdir> --names               # workflow-name distribution — themes show up here
 ```
 Read one report's `workflows[].steps` and `user_corrections` before launching the rest: steps must
 carry real command shapes and session citations, not paraphrase.
@@ -151,10 +151,10 @@ carry real command shapes and session citations, not paraphrase.
 ## 4. Merge and render (deterministic)
 
 ```bash
-python3 <skill>/scripts/aggregate.py --dir <workdir> --merge      # → ALL_REPORTS.json (too big for one agent)
-python3 <skill>/scripts/render.py --dir <workdir> --per-group 6   # → views/G1.md … (markdown, ~25% smaller than JSON)
+node <skill>/scripts/aggregate.js --dir <workdir> --merge      # → ALL_REPORTS.json (too big for one agent)
+node <skill>/scripts/render.js --dir <workdir> --per-group 6   # → views/G1.md … (markdown, ~25% smaller than JSON)
 # a long session split across chunks must land in ONE group — pass explicit groups instead:
-python3 <skill>/scripts/render.py --dir <workdir> --groups "G1=01,04,06;G2=02,03,05"
+node <skill>/scripts/render.js --dir <workdir> --groups "G1=01,04,06;G2=02,03,05"
 ```
 
 ## 5. Cluster (strongest model, one agent per group)
@@ -206,7 +206,7 @@ explicitly left uncommitted.
 
 Check the graph, not just the links:
 ```bash
-python3 <skill>/scripts/xref.py plugins/<plugin>/skills     # in/out-link table, orphans, dangling names
+node <skill>/scripts/xref.js plugins/<plugin>/skills     # in/out-link table, orphans, dangling names
 ```
 Flag any skill with **zero in-links** (it will never be reached from another skill) and any
 one-directional pair. A skill nothing routes into is a skill that will not be used. The
@@ -236,13 +236,13 @@ were added or a skill's role changed (a typical pass is one mapper, a handful of
    pairs resolve in one hop both ways; one autonomy vocabulary
    (`--report-only | --approval-gated | --autonomous`). Editors introduce real defects here, including files
    asserting a flag the owner says does something else.
-4. Re-run `xref.py` and §8; bump the plugin version; commit (precise staging) if asked; report
+4. Re-run `xref.js` and §8; bump the plugin version; commit (precise staging) if asked; report
    what changed and anything explicitly left uncommitted.
 
 ## Verified gotchas
 
 - `stat -f %z` fails inside a `for` over globbed paths on macOS when a filename contains
-  spaces — use `wc -c <` or Python for byte counts.
+  spaces — use `wc -c <` for byte counts.
 - An `ai-title` line is emitted per compaction; `custom-title` is the user's name for the
   session and is the better label.
 - Assistant `text` blocks after compaction can be a 1-line "compaction summary" — the distiller
@@ -250,7 +250,7 @@ were added or a skill's role changed (a typical pass is one mapper, a handful of
 - The same underlying work often appears as two session ids (a branched conversation or a
   parallel thread) — the synthesizer should list such pairs and discount recurrence.
 - Extractors that finish with "JSON is valid" in their reply did an extra self-check; those
-  reports were never the broken ones. The broken ones are silent — always run `aggregate.py`.
+  reports were never the broken ones. The broken ones are silent — always run `aggregate.js`.
 - Test the scripts on a tiny synthetic transcript (`--projects-dir <fixture>`), never on real
   transcripts you are about to paste somewhere.
 

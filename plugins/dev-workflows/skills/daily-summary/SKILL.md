@@ -50,7 +50,7 @@ else confirms, links, and fills gaps. Format reference: [`references/format.md`]
 Run the bundled digest for the day:
 
 ```bash
-ruby <skill dir>/scripts/sessions_digest.rb <YYYY-MM-DD> [--tz <Area/City>] [--projects-dir <dir>]
+node <skill dir>/scripts/sessions_digest.js <YYYY-MM-DD> [--tz <Area/City>] [--projects-dir <dir>]
 ```
 
 `--projects-dir` (or `$CLAUDE_PROJECTS_DIR`) points it at a non-default Claude Code config dir or
@@ -63,7 +63,7 @@ original file under the original id** — the file to exclude is the one whose t
 latest prompt, not one named after the resumed session's new id.
 
 **Drill-down** when a session's outcome matters and the digest is cut off:
-`ruby <skill dir>/scripts/sessions_digest.rb <YYYY-MM-DD> --session <id prefix> [--from HH:MM]`
+`node <skill dir>/scripts/sessions_digest.js <YYYY-MM-DD> --session <id prefix> [--from HH:MM]`
 prints every prompt and every substantive reply for that window, untruncated. Never read raw
 transcripts directly — they run to tens of MB.
 
@@ -103,9 +103,9 @@ say so in the coverage line rather than starting an OAuth flow.
 and misses the end of this one for anyone not on UTC. Always pass the local day as a UTC range:
 
 ```bash
-R=$(TZ=<Area/City> ruby -rtime -rdate -e 'd = Date.parse(ARGV[0]); n = d + 1
-  s = Time.local(d.year, d.month, d.day).utc; e = Time.local(n.year, n.month, n.day).utc
-  puts "#{s.iso8601}..#{e.iso8601}"' 2026-03-04)
+R=$(TZ=<Area/City> node -e 'const [y, m, d] = process.argv[1].split("-").map(Number)
+  const iso = (t) => t.toISOString().replace(".000Z", "Z")
+  console.log(`${iso(new Date(y, m - 1, d))}..${iso(new Date(y, m - 1, d + 1))}`)' 2026-03-04)
 # PRs the user authored that moved today (add --owner <org> to narrow)
 gh search prs --author @me --updated "$R" --limit 100 \
   --json repository,number,title,state,url,updatedAt
