@@ -178,11 +178,11 @@ stands now and catch what never went through a session. Digest each day with the
 **daily-summary** skill's script (same plugin, `../daily-summary/` from this skill's directory):
 
 ```bash
-S=<dev-workflows skills dir>/daily-summary/scripts/sessions_digest.rb
-ruby $S <first day> --tz <Area/City> --from <previous post time, HH:MM>   # first day: after the post only
-for d in <each later date in the window>; do ruby $S "$d" --tz <Area/City>; done
+S=<dev-workflows skills dir>/daily-summary/scripts/sessions_digest.js
+node $S <first day> --tz <Area/City> --from <previous post time, HH:MM>   # first day: after the post only
+for d in <each later date in the window>; do node $S "$d" --tz <Area/City>; done
 # one session in full, when an outcome matters and the digest is cut off:
-ruby $S <date> --tz <Area/City> --session <id prefix> [--from HH:MM]
+node $S <date> --tz <Area/City> --session <id prefix> [--from HH:MM]
 ```
 
 The output shows each session's title, its prompts, the skills and MCP servers it used, the PRs
@@ -232,7 +232,7 @@ the daily-summary format (item, what happened, PR/thread links, end-of-day statu
 so the main thread composes from the item lists instead of raw digests.
 
 **Second sweep — GitHub, the cloud agent and artifacts.** These answer most remaining gaps in one
-call each. GitHub date filters are UTC, so pass the window as a local-day UTC range (the Ruby
+call each. GitHub date filters are UTC, so pass the window as a local-day UTC range (the
 one-liner in **daily-summary** Phase 2 prints it for any zone, DST-safe):
 
 ```bash

@@ -29,7 +29,7 @@ tool being built renders, measures, or transforms images.
   magick -size 800x600 xc:white -fill '#3355cc' -draw "rectangle 120,90 680,510" synthetic_padded.png
   magick -size 800x600 xc:none  -fill '#3355cc' -draw "rectangle 120,90 680,510" synthetic_transparent.png
   ```
-- If ImageMagick is unavailable at all, generate test PNGs in a **pure-Ruby PNG writer (zlib, ~15 lines)** —
+- If ImageMagick is unavailable at all, generate test PNGs in a **pure-Node PNG writer (`zlib` + a CRC32 loop, ~30 lines)** —
   an untested fallback nobody has to run is a fallback that rots, so run it once.
 
 ## Hosted image-transform APIs (Cloudinary-style CDNs)

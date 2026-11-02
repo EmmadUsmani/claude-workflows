@@ -71,9 +71,9 @@ When the partner exposes the data without auth, skip our client:
 
 ```bash
 curl -s https://api.partner.example/v1/places/place_7720 -o place.json
-ruby -rjson -e 'JSON.parse(File.read("place.json"))["opening_hours"]["periods"].each { puts _1.inspect }'
+node -e 'JSON.parse(require("fs").readFileSync("place.json", "utf8")).opening_hours.periods.forEach((period) => console.log(JSON.stringify(period)))'
 ```
 
-`.inspect` makes stray whitespace, case differences and unexpected types (`"7"` vs `7`) visible.
+`JSON.stringify` makes stray whitespace, case differences and unexpected types (`"7"` vs `7`) visible.
 If the endpoint is one their own web app calls rather than their documented API, say so in the
 message (partner.md Step 3).

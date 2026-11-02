@@ -109,8 +109,8 @@ rest down; **dev-doctor** owns anything deeper.
 
 ## 4. One numbered script per hypothesis
 
-Write `NN_short_description.rb` — in the app's language when you're driving its client, else the
-user's preferred scripting language — and run it. Numbered files make the probe sequence readable
+Write `NN_short_description.rb` — in the app's language when you're driving its client, else a
+plain Node script (`NN_short_description.js`, `node file.js`) — and run it. Numbered files make the probe sequence readable
 afterwards and let you re-run any single step.
 
 ```bash
@@ -145,7 +145,7 @@ capability boundary you're testing: if the question is whether the API combines 
 one output, pick a target that has two slots and send two distinguishable inputs. For claims about
 rendered output (an API that returns images or PDFs built from your input), generate **visually
 distinct** synthetic inputs — solid squares in clearly different colours — so you can tell them
-apart in the result. ImageMagick may be absent locally; a short pure-Ruby PNG writer (zlib) is a
+apart in the result. ImageMagick may be absent locally; a short pure-Node PNG writer (`zlib` + a CRC32 loop) is a
 fine fallback, as **sandbox-tool**'s reference describes.
 
 ## 5. Create → GET 200 → DELETE → re-GET 404

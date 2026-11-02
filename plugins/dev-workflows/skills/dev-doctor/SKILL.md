@@ -18,7 +18,7 @@ containers and env-var names. Fill that map in once and keep it in the project `
 Set these once per Bash call (shell state doesn't persist between calls):
 
 ```bash
-PORT=$(ruby -ruri -e 'puts URI(ARGV[0]).port' '<dev_url>')     # the main dev port
+PORT=$(node -e 'const u = new URL(process.argv[1]); console.log(u.port || (u.protocol === "https:" ? 443 : 80))' '<dev_url>')     # the main dev port
 PORTS="$PORT $((PORT+1)) $(find <worktrees_dir> -maxdepth 2 -name .dev-port -exec cat {} + 2>/dev/null)"   # + every worktree's base (worktree-create step 2)
 ```
 
@@ -221,7 +221,7 @@ broken locally at once, check this before the code.
 Background Bash tasks and their whole process group have been observed being SIGTERM'd by the
 harness after a while, and a foreground command's timeout SIGTERMs its process group too — this
 has silently killed a dev server just before it was needed. Relaunching after a reap just
-restarts the clock. The detach recipe (its own process group via `python3 os.setsid`, a
+restarts the clock. The detach recipe (its own process group via a Node `detached: true` spawn, a
 per-worktree log and pgid file) lives in **worktree-dev-server** step 3; use it rather than
 re-deriving one here.
 

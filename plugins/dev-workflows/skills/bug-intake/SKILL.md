@@ -502,8 +502,8 @@ by-product). Offer; don't file unprompted.
 ## Working conventions
 
 - Scratch scripts and findings: one dir per investigation,
-  `<sandbox_dir>/adhoc/<YYYY-MM-DD>-<slug>/`. Scripts the user runs are in the user's preferred
-  scripting language — Ruby in this plugin unless their settings say otherwise.
+  `<sandbox_dir>/adhoc/<YYYY-MM-DD>-<slug>/`. Standalone scripts the user runs are plain Node
+  (`node file.js`, built-ins only) unless their settings say otherwise; code that runs inside the app (a runner/console script) uses the app's language.
 - **Sandbox writes auto-commit when `<sandbox_autocommit>` is on (the default) — never ask.**
   After each meaningful write under `<sandbox_dir>` (when it is a git repo), `git -C
   <sandbox_dir> add <only the paths you wrote>` and commit with a short descriptive message, no

@@ -14,7 +14,7 @@ Every command below uses these, set once per call (the harness resets shell stat
 
 ```bash
 WT=<abs-worktree-path>                                          # absolute, always
-PORT=$(ruby -ruri -e 'puts URI(ARGV[0]).port' '<dev_url>')     # or: python3 -c 'import sys,urllib.parse as u; print(u.urlsplit(sys.argv[1]).port or 80)' '<dev_url>'
+PORT=$(node -e 'const u = new URL(process.argv[1]); console.log(u.port || (u.protocol === "https:" ? 443 : 80))' '<dev_url>')
 SLUG=$(basename "$WT"); LOG="${TMPDIR:-/tmp}/dev-$SLUG.log"; PGF="${TMPDIR:-/tmp}/dev-$SLUG.pgid"
 ```
 
@@ -80,18 +80,17 @@ silently kill a server you didn't start — check first, and if something's ther
 
 3. **Boot detached, in its own process group**, pinning the port:
    ```bash
-   cd "$WT" && PORT=$PORT nohup python3 -c 'import os,sys; os.setsid(); os.execvp("sh", ["sh","-c",sys.argv[1]])' \
-     '<dev_cmd>' > "$LOG" 2>&1 &
-   echo $! > "$PGF"          # setsid made this PID the group leader; shutdown kills the whole group
+   cd "$WT" && PORT=$PORT node -e 'const fs = require("fs"); const log = fs.openSync(process.argv[2], "w"); const child = require("child_process").spawn("sh", ["-c", process.argv[1]], { detached: true, stdio: ["ignore", log, log] }); fs.writeFileSync(process.argv[3], String(child.pid)); child.unref()' \
+     '<dev_cmd>' "$LOG" "$PGF"   # detached => setsid: the child PID (written to $PGF) leads its own group; shutdown kills the whole group
    ```
-   Put any stack flags inside the quoted command or before `nohup`
-   (`WEB_CONCURRENCY=0 RAILS_MAX_THREADS=5 PORT=$PORT nohup …`). It returns at once; the server is
+   Put any stack flags inside the quoted command or before `node`
+   (`WEB_CONCURRENCY=0 RAILS_MAX_THREADS=5 PORT=$PORT node -e …`). It returns at once; the server is
    not ready yet.
 
    - **Why detached.** Background tasks and their process group have been observed being
      SIGTERM'd by the harness after a while, and a foreground command's timeout (2 minutes by
      default in Claude Code) SIGTERMs its group too — which has silently killed a dev server just
-     before it was needed. macOS has no `setsid` CLI, hence the `python3` form. Relaunching after a
+     before it was needed. macOS has no `setsid` CLI, hence the Node `detached: true` spawn (which calls `setsid`). Relaunching after a
      reap just restarts the clock — for a session the user drives themselves, suggest they run
      `<dev_cmd>` via `!` passthrough instead.
    - **Vite:** `--port $((PORT+1)) --strictPort`, so it fails loudly instead of drifting to a port

@@ -90,7 +90,7 @@ worktrees have claimed, and anything listening now. Reserve one port per process
 from `<dev_url>`'s port + 1000:
 
 ```bash
-MAINPORT=$(ruby -ruri -e 'puts URI(ARGV[0]).port' '<dev_url>'); K=2; STEP=10
+MAINPORT=$(node -e 'const u = new URL(process.argv[1]); console.log(u.port || (u.protocol === "https:" ? 443 : 80))' '<dev_url>'); K=2; STEP=10
 claimed=$(find "<worktrees_dir>" -maxdepth 2 -name .dev-port -exec cat {} + 2>/dev/null)   # find, not a glob: zsh errors on an unmatched */.dev-port
 p=$((MAINPORT + 1000))
 while echo "$claimed" | grep -qx "$p" || lsof -nP -iTCP:$p-$((p+K-1)) -sTCP:LISTEN | grep -q .; do p=$((p+STEP)); done

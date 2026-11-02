@@ -403,11 +403,11 @@ review-support explainer, hand off to **research-doc**.)
   mid-capture. Re-assert the viewport (`browser_resize`) and the URL immediately before every
   screenshot.
 - `file://` is blocked, so a generated HTML report can't be previewed directly —
-  `python3 -m http.server <port>` in its directory, drive `http://localhost:<port>/`, then
+  a Node static server in its directory (one-liner in **verify-in-app**'s gotchas, `PORT=<port>`), drive `http://localhost:<port>/`, then
   kill the server.
 - **Full-page admin screenshots fight a fixed sidebar** that expands on hover and covers
   content. Capture a container element (`target: "#some-page-container"`) instead.
-- **Scripts as deliverables are Ruby** (the user's preference); throwaway payload builders are
+- **Scripts as deliverables are Node** (plain JavaScript, `node file.js`; the user's preference); throwaway payload builders are
   fine in any language.
 
 ## When not to use this — hand off to

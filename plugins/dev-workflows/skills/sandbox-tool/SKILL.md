@@ -14,7 +14,7 @@ Three shapes, chosen by what's being asked for:
 
 | Shape | Home | Example |
 |---|---|---|
-| **script** — reusable dev-ops tool, no ticket | `scripts/` | `scripts/queue_status.rb`, `scripts/kill-dev-stack.sh` |
+| **script** — reusable dev-ops tool, no ticket | `scripts/` | `scripts/queue_status.js`, `scripts/kill-dev-stack.sh` |
 | **toolkit** — per-ticket fixture setup you must undo | `tickets/<TICKET-SLUG>/` | `tickets/INV-142-late-fee-fixtures/fixture_setup/` |
 | **sampler** — render N candidates, judge by eye | `tickets/<name>-preview/` | `tickets/thumbnail-sharpen-preview/` |
 
@@ -29,16 +29,16 @@ a git repo, autocommit is a no-op: say so in the hand-off.
   a new directory". **Empty sandbox?** There is nothing to copy: create `scripts/`, start from the
   skeleton in §2 and a short `scripts/README.md`, and treat the examples in the tables below as
   names to aim for, not files that exist.
-- **Default to plain Ruby or bash** for anything the user runs or reads (the plugin's
-  convention for user-facing scripts); use the app's runner (`bin/rails runner`, `node -e`…) only
-  when the tool needs the app's models. If the user's project is in another language, match it, but
+- **Default to plain Node (`node file.js`, built-ins only) or bash** for any standalone script the
+  user runs or reads — not Ruby or Python; use the app's runner (`bin/rails runner`,
+  `manage.py shell`…) only when the tool needs the app's models. If the user's project is in another language, match it, but
   keep the env-var CLI surface below. Your own throwaway one-liners and an independent *validator*
   are fine in whatever language is convenient.
 - **These scripts are read by a human, so they get the `code-style` pass too** — implicit
   returns, full words not abbreviations, hash destructuring over positional arrays, class
   constants at the top, and comments that carry knowledge the code can't show. Run its
   self-review checklist before handing the script over.
-- **Env vars are the CLI surface.** No flag parsers, no positional args in Ruby scripts. `MODE=`,
+- **Env vars are the CLI surface.** No flag parsers, no positional args in scripts. `MODE=`,
   `STEPS=`, `CONFIRM=yes`, `LIMIT=`, `OPEN=0`. A smoke run and a full sweep are then the same
   script.
 - **A pure-read mode always exists and always runs first.** `MODE=report` for a toolkit; the
@@ -97,9 +97,9 @@ these shapes; they may not exist yet):
 
 | File | What it is |
 |---|---|
-| `scripts/queue_status.rb` | **read-only** job-queue health — depth, latency, retry/dead grouped by error class. `SCAN_LIMIT=`, `ALL=1` |
-| `scripts/queue_clear.rb` | destructive queue wipe. `CONFIRM=yes`, `QUEUES=`, `RESET_STATS=1` |
-| `scripts/cache_clear.rb` | destructive multi-layer cache bust. `CONFIRM=yes`, `RECORD=<id>`, `APP_LAYERS_ONLY=1` (same knobs as **render-pipeline-debug**'s cache-bust tool) |
+| `scripts/queue_status.js` | **read-only** job-queue health — depth, latency, retry/dead grouped by error class. `SCAN_LIMIT=`, `ALL=1` |
+| `scripts/queue_clear.js` | destructive queue wipe. `CONFIRM=yes`, `QUEUES=`, `RESET_STATS=1` |
+| `scripts/cache_clear.js` | destructive multi-layer cache bust. `CONFIRM=yes`, `RECORD=<id>`, `APP_LAYERS_ONLY=1` (same knobs as **render-pipeline-debug**'s cache-bust tool) |
 | `scripts/kill-dev-stack.sh` | kill the whole local dev stack, supervisors first |
 | `scripts/dev-up.sh` | boot a checkout on a chosen port. `-d/--dir`, `-p/--port`, `-b/--background` |
 
@@ -107,34 +107,80 @@ Ask for them **in pairs** when the job is inspect-then-act — one to check, one
 both. Give each script a short entry in `scripts/README.md` (what it does, the invocation, the
 knobs); a script without a README line is half-delivered.
 
-**Primary skeleton — plain Ruby, no framework** (a stale-file mover; swap the body for your job):
+**Primary skeleton — plain Node, no framework** (a stale-file mover; swap the body for your job):
 
-```ruby
-#!/usr/bin/env ruby
-# Move stale files out of DIR into a trash folder — reversible, never unlinks.
-#
-# Report only (default MODE — reads, changes nothing):
-#   DIR=/abs/path/logs ruby /abs/path/<sandbox_dir>/scripts/stale_files.rb
-# Dry-run the change (default for apply — prints what it WOULD move):
-#   MODE=apply DIR=/abs/path/logs ruby .../stale_files.rb
-# Do it:
-#   MODE=apply CONFIRM=yes DIR=/abs/path/logs ruby .../stale_files.rb
-# Undo a run:
-#   MODE=revert RUN_ID=<id printed by apply> DIR=/abs/path/logs ruby .../stale_files.rb
-# Knobs: DAYS=30 (staleness threshold), MODE=report|apply|revert
-# Blast radius: files under DIR only; moved, never deleted. Refuses DIR=/ or $HOME.
+```js
+#!/usr/bin/env node
+// Move stale files out of DIR into a trash folder — reversible, never unlinks.
+//
+// Report only (default MODE — reads, changes nothing):
+//   DIR=/abs/path/logs node /abs/path/<sandbox_dir>/scripts/stale_files.js
+// Dry-run the change (default for apply — prints what it WOULD move):
+//   MODE=apply DIR=/abs/path/logs node .../stale_files.js
+// Do it:
+//   MODE=apply CONFIRM=yes DIR=/abs/path/logs node .../stale_files.js
+// Undo a run:
+//   MODE=revert RUN_ID=<id printed by apply> DIR=/abs/path/logs node .../stale_files.js
+// Knobs: DAYS=30 (staleness threshold), MODE=report|apply|revert
+// Blast radius: files directly under DIR only; moved, never deleted. Refuses DIR=/ or $HOME.
+'use strict';
 
-require 'fileutils'
-require 'json'
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 
-mode = ENV.fetch('MODE', 'report')
-dir = File.expand_path(ENV.fetch('DIR') { abort 'DIR=<absolute path> is required' })
-abort "REFUSING: #{dir} is too broad." if [File::SEPARATOR, Dir.home].include?(dir)
-abort "unknown MODE=#{mode} (report|apply|revert)" unless %w[report apply revert].include?(mode)
-confirmed = ENV['CONFIRM'] == 'yes'
-puts "mode=#{mode} confirmed=#{confirmed} dir=#{dir}"
-# ... report: list candidates; apply: move + write manifest.json under the trash run dir
-# (and skip the move unless confirmed); revert: read that manifest and move everything back.
+const TRASH_DIRNAME = '.stale-trash';
+
+function abort(message) {
+  console.error(message);
+  process.exit(1);
+}
+
+const mode = process.env.MODE || 'report';
+if (!process.env.DIR) abort('DIR=<absolute path> is required');
+const dir = path.resolve(process.env.DIR);
+if ([path.parse(dir).root, os.homedir()].includes(dir)) abort(`REFUSING: ${dir} is too broad.`);
+if (!['report', 'apply', 'revert'].includes(mode)) abort(`unknown MODE=${mode} (report|apply|revert)`);
+const confirmed = process.env.CONFIRM === 'yes';
+const days = Number(process.env.DAYS || 30);
+console.log(`mode=${mode} confirmed=${confirmed} dir=${dir}`);
+
+function staleFiles() {
+  const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+  return fs.readdirSync(dir, { withFileTypes: true })
+    .filter((entry) => entry.isFile())
+    .map((entry) => path.join(dir, entry.name))
+    .filter((file) => fs.statSync(file).mtimeMs < cutoff);
+}
+
+if (mode === 'report') {
+  const files = staleFiles();
+  files.forEach((file) => console.log(`stale: ${file}`));
+  console.log(`${files.length} stale file(s) older than ${days} days`);
+} else if (mode === 'apply') {
+  const files = staleFiles();
+  const runId = new Date().toISOString().replace(/\D/g, '').slice(0, 14);
+  const runDir = path.join(dir, TRASH_DIRNAME, runId);
+  const manifest = files.map((file) => ({ from: file, to: path.join(runDir, path.basename(file)) }));
+  manifest.forEach(({ from, to }) => console.log(`${confirmed ? 'moving' : 'WOULD move'}: ${from} -> ${to}`));
+  if (confirmed) {
+    fs.mkdirSync(runDir, { recursive: true });
+    manifest.forEach(({ from, to }) => fs.renameSync(from, to));
+    fs.writeFileSync(path.join(runDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
+    console.log(`RUN_ID=${runId}  (undo: MODE=revert RUN_ID=${runId})`);
+  } else {
+    console.log('dry run — add CONFIRM=yes to move');
+  }
+} else {
+  const runId = process.env.RUN_ID || abort('RUN_ID=<id printed by apply> is required');
+  const manifestPath = path.join(dir, TRASH_DIRNAME, runId, 'manifest.json');
+  if (!fs.existsSync(manifestPath)) abort(`no manifest at ${manifestPath}`);
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  manifest.forEach(({ from, to }) => {
+    console.log(`restoring: ${to} -> ${from}`);
+    fs.renameSync(to, from);
+  });
+}
 ```
 
 The same shape in bash: `set -uo pipefail`, env vars for knobs, a refusal guard, and `--help`
@@ -160,7 +206,7 @@ baseline/revert discipline as the toolkit's rules in §3. Where a change is inhe
 irreversible (a queue wipe, a cache bust), say so in the header and keep the dry-run and
 `CONFIRM=yes` gate.
 
-**Verify with the dry run, then narrow-scope live, then revert, then report.** `ruby -c` (or
+**Verify with the dry run, then narrow-scope live, then revert, then report.** `node --check` (or
 `bash -n`) first, then run with no `CONFIRM` and read the output, then a scoped `CONFIRM=yes` run
 on a fixture, then `MODE=revert` and confirm the tree/state matches the original (hash it before
 and after). Filter framework noise from the output (`2>&1 | grep -vE "<noisy logger prefixes>"`).
@@ -270,7 +316,7 @@ image-compression presets (JPEG/WebP quality settings) by file size and SSIM aga
    values and measured numbers, the mandatory `none` control row, the click-to-enlarge lightbox,
    the theme tokens — is owned by `visual-explainer` (mode `explore`).** Load it before emitting
    the template; this skill owns the generator, that one owns the page.
-8. **Verify the page** with **visual-explainer**'s verification phase (`python3 -m http.server`,
+8. **Verify the page** with **visual-explainer**'s verification phase (a Node static server — the one-liner is in **verify-in-app**'s gotchas,
    drive every toggle with the browser tool and assert the computed values, both themes, read the
    screenshots back, a ~390 px overflow check, kill the server).
 9. **Bound expensive sweeps.** A full pass can run tens of minutes. Launch detached —
@@ -314,7 +360,7 @@ the tool at real data, and re-run it after every change to the measurement code.
 
 - **Run everything from the app repo** via the runner with an absolute sandbox path
   (`bin/rails runner <abs path>`, or the equivalent for your stack). Scripts that need no DB
-  (pure ImageMagick samplers) run as plain `ruby <path>`.
+  (pure ImageMagick samplers) run as plain `node <path>`.
 - **A tool that must also run in production is a console-invoked service object or data-fix
   class following the repo's own convention, not a rake task or a loose script** — check the
   repo's contributor docs (e.g. an `AGENTS.md`/`CONTRIBUTING.md`) for how data fixes are

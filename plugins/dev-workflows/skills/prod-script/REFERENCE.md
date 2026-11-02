@@ -91,27 +91,37 @@ $stdout.puts ['================== COPY FROM HERE ==================',
 **Restore anything you changed for the run** in an `ensure` on the `begin … end`, and say in the
 header that the console should be exited afterwards.
 
-### The payload extractor (`extract_payload.rb`)
+### The payload extractor (`extract_payload.js`)
 
 Save once per investigation dir; Phase 3 and Phase 5 both use it. It anchors on lines that are
 **exactly** a marker, because a paste echoes the source line that *contains* the marker text.
+It runs locally in plain Node (the repair/diagnose scripts stay in the app's language).
 
-```ruby
-# frozen_string_literal: true
+```js
+#!/usr/bin/env node
+'use strict';
+// Extracts the JSON payload from a console transcript (a pasted run or a paste rehearsal).
+// Usage: node extract_payload.js <transcript.txt> [out.json]
+const fs = require('fs');
 
-# Extracts the JSON payload from a console transcript (a pasted run or a paste rehearsal).
-# Usage: ruby extract_payload.rb <transcript.txt> [out.json]
-require 'json'
+function abort(message) {
+  console.error(message);
+  process.exit(1);
+}
 
-lines = File.readlines(ARGV.fetch(0), chomp: true)
-start = lines.index { |line| line.match?(/\A=+ COPY FROM HERE =+\z/) } or abort('no COPY FROM HERE line')
-stop  = lines.index { |line| line.match?(/\A=+ COPY TO HERE =+\z/) } or abort('no COPY TO HERE line')
-payload = JSON.parse(lines[(start + 1)...stop].join("\n"))
-File.write(ARGV[1], JSON.pretty_generate(payload)) if ARGV[1]
-puts JSON.pretty_generate(payload)
+const [transcript, outFile] = process.argv.slice(2);
+if (!transcript) abort('usage: node extract_payload.js <transcript.txt> [out.json]');
+const lines = fs.readFileSync(transcript, 'utf8').split(/\r?\n/);
+const start = lines.findIndex((line) => /^=+ COPY FROM HERE =+$/.test(line));
+if (start === -1) abort('no COPY FROM HERE line');
+const stop = lines.findIndex((line) => /^=+ COPY TO HERE =+$/.test(line));
+if (stop === -1) abort('no COPY TO HERE line');
+const pretty = JSON.stringify(JSON.parse(lines.slice(start + 1, stop).join('\n')), null, 2);
+if (outFile) fs.writeFileSync(outFile, pretty);
+console.log(pretty);
 ```
 
-(`abort` is fine here — this runs locally, not in the user's console.)
+(Exiting on error is fine here — this runs locally, not in the user's console.)
 
 ---
 

@@ -222,12 +222,12 @@ ruby -c $S/01_diagnose.rb
 grep -nE '^\s*(return|abort|exit)\b|^\s*\.[a-z_]' $S/01_diagnose.rb   # paste traps: return/abort/exit, leading dots
 cd $WT && git branch --show-current && \
   bin/rails console < $S/01_diagnose.rb > $S/01-rehearsal-paste.txt 2>&1   # the paste, non-interactively
-ruby $S/extract_payload.rb $S/01-rehearsal-paste.txt > /dev/null && echo 'payload parses'
+node $S/extract_payload.js $S/01-rehearsal-paste.txt > /dev/null && echo 'payload parses'
 ```
 
 Piping a file into the console's stdin is a faithful paste rehearsal: IRB evaluates it statement by
 statement exactly as a terminal paste would (it also echoes each source line, which is why the
-extractor anchors on whole-line markers). `extract_payload.rb` is the Phase 5 extractor, saved once
+extractor anchors on whole-line markers). `extract_payload.js` is the Phase 5 extractor, saved once
 per investigation dir (`REFERENCE.md` §1). Print the dev DB name somewhere in the output so the
 rehearsal proves which database it hit.
 
@@ -315,10 +315,10 @@ Console mechanics worth checking once for your platform (`REFERENCE.md` §3):
 - Ignore unrelated console noise (connection resets, deprecation warnings, echoed source).
 - Save the transcript as `NN-output.txt` and the extracted payload as `NN-output.json` beside the
   script.
-- **Parse with a tool, not by eye**, anchoring on whole-line markers — the `extract_payload.rb` in
+- **Parse with a tool, not by eye**, anchoring on whole-line markers — the `extract_payload.js` in
   `REFERENCE.md` §1, or as a one-liner:
   ```bash
-  ruby -rjson -e 'l = File.readlines(ARGV[0], chomp: true); a = l.index { _1.match?(/\A=+ COPY FROM HERE =+\z/) }; b = l.index { _1.match?(/\A=+ COPY TO HERE =+\z/) }; puts JSON.pretty_generate(JSON.parse(l[(a + 1)...b].join("\n")))' NN-output.txt > NN-output.json
+  node -e 'const l = require("fs").readFileSync(process.argv[1], "utf8").split(/\r?\n/); const a = l.findIndex((x) => /^=+ COPY FROM HERE =+$/.test(x)); const b = l.findIndex((x) => /^=+ COPY TO HERE =+$/.test(x)); console.log(JSON.stringify(JSON.parse(l.slice(a + 1, b).join("\n")), null, 2))' NN-output.txt > NN-output.json
   ```
 - **Cross-check each prod id against dev individually.** Dev catalog counts diverge from prod
   materially, and some records exist only in prod. Say explicitly which facts are prod-verified.

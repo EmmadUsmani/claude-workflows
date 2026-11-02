@@ -96,27 +96,50 @@ trusting either.
 
 When `<warehouse>` is a CLI, a small wrapper gives every query the same `NN_<probe>.sql` +
 `NN_<probe>.json` pair an MCP tool's result would. Adapt the command line to your CLI; this one
-uses `psql` against a replica (`--csv` output, parsed into rows):
+uses `psql` against a replica (`--csv` output, parsed into rows by the small CSV reader at the top):
 
-```ruby
-#!/usr/bin/env ruby
-# frozen_string_literal: true
-# Usage: wq <out_prefix> <sql-file-or-string>   e.g. wq 03_blast_radius blast.sql
-require 'csv'
-require 'json'
-require 'time'
+```js
+#!/usr/bin/env node
+'use strict';
+// Usage: node wq.js <out_prefix> <sql-file-or-string>   e.g. node wq.js 03_blast_radius blast.sql
+const fs = require('fs');
+const { spawnSync } = require('child_process');
 
-prefix, source = ARGV
-sql = File.exist?(source.to_s) ? File.read(source) : source.to_s
-queried_at = Time.now.utc.iso8601
-csv = IO.popen(['psql', ENV.fetch('READ_REPLICA_URL'), '--csv', '-v', 'ON_ERROR_STOP=1', '-c', sql], &:read)
-abort("query failed (exit #{$?.exitstatus})") unless $?.success?
-rows = CSV.parse(csv, headers: true).map(&:to_h)
-File.write("#{prefix}.sql", sql)
-File.write("#{prefix}.json", JSON.pretty_generate(queried_at: queried_at, row_count: rows.size, rows: rows))
-puts JSON.pretty_generate(rows.first(20))
+// Minimal RFC 4180 parser: quoted fields, "" escapes, CRLF/LF. Unquoted empty field => null.
+function parseCsv(text) {
+  const records = [];
+  let record = [], field = '', quoted = false, wasQuoted = false;
+  const endField = () => { record.push(field === '' && !wasQuoted ? null : field); field = ''; wasQuoted = false; };
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    if (quoted) {
+      if (char === '"' && text[i + 1] === '"') { field += '"'; i++; }
+      else if (char === '"') quoted = false;
+      else field += char;
+    } else if (char === '"') { quoted = true; wasQuoted = true; }
+    else if (char === ',') endField();
+    else if (char === '\n' || char === '\r') {
+      if (char === '\r' && text[i + 1] === '\n') i++;
+      endField(); records.push(record); record = [];
+    } else field += char;
+  }
+  if (field !== '' || wasQuoted || record.length) { endField(); records.push(record); }
+  return records;
+}
+
+const [prefix, source] = process.argv.slice(2);
+if (!prefix || !source) { console.error('usage: node wq.js <out_prefix> <sql-file-or-string>'); process.exit(1); }
+const sql = fs.existsSync(source) ? fs.readFileSync(source, 'utf8') : source;
+const queriedAt = new Date().toISOString().replace(/\.\d+Z$/, 'Z');
+const result = spawnSync('psql', [process.env.READ_REPLICA_URL, '--csv', '-v', 'ON_ERROR_STOP=1', '-c', sql], { encoding: 'utf8' });
+if (result.status !== 0) { console.error(`query failed (exit ${result.status})`); process.exit(1); }
+const [headers = [], ...body] = parseCsv(result.stdout);
+const rows = body.map((values) => Object.fromEntries(headers.map((header, index) => [header, values[index]])));
+fs.writeFileSync(`${prefix}.sql`, sql);
+fs.writeFileSync(`${prefix}.json`, JSON.stringify({ queried_at: queriedAt, row_count: rows.length, rows }, null, 2));
+console.log(JSON.stringify(rows.slice(0, 20), null, 2));
 ```
 
-Swap the `IO.popen` line for your engine: `bq query --format=json --use_legacy_sql=false`,
+Swap the `spawnSync` call for your engine: `bq query --format=json --use_legacy_sql=false`,
 `snowsql -o output_format=json -q`, `sqlite3 -readonly -json <db>`. Add the table's freshness
 (SKILL.md § Freshness) to the JSON by hand or with a second query.

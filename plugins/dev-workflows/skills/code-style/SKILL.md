@@ -44,7 +44,7 @@ presenting a diff.
 | **pr-triage** Phase 7 | over any fix you propose — and as the basis for *refuting* a bot's shape claim |
 | **agent-team** §4 / §8 | in every agent's brief, and by the lead over the *combined* diff (shape defects are composition defects) |
 | **stack-surgery** | over every hand-resolved conflict hunk |
-| **sandbox-tool**, **prod-script**, **vendor-api-probe** | over the Ruby a human will run and read (§9) |
+| **sandbox-tool**, **prod-script**, **vendor-api-probe** | over the scripts a human will run and read (Node for standalone ones; §9 for app-runtime Ruby) |
 | **dev-doctor**, **render-pipeline-debug** | over a repair before proposing it |
 | **deep-pr-review** §6 | as the rubric for shape findings on any PR, and as the self-review picklist |
 | **research-doc** (design mode) | the proposed design must land on shapes from §1–§5 |
@@ -301,7 +301,7 @@ the user's corrections:
   for a manual rollback story.
 - **Follow the repo's service-object convention** (its result type, how failure is signalled) —
   read the convention doc or two sibling services before writing a third.
-- **Ruby, never Python**, for any script the user runs or reads. *(The user's personal rule.)*
+- **Standalone scripts are Node** (plain JavaScript, `node file.js`, built-ins only) — not Ruby or Python — for any script the user runs or reads; code that runs inside the app (a runner/console script, a model) uses the app's language, so the Ruby idioms above apply to that. *(The user's personal rule.)*
 
 ## 10. Testing [any]
 
