@@ -1,5 +1,5 @@
 {
-  "_comment": "Example config for an invoicing app's billing area. Every id is fake; replace them with your chat tool's real ids. Run `ff.rb config check` after editing.",
+  "_comment": "Example config for an invoicing app's billing area. Every id is fake; replace them with your chat tool's real ids. Run `ff.js config check` after editing.",
   "chat": "slack",
   "self": {
     "user_id": "UEXAMPLE0",

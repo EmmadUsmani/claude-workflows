@@ -48,7 +48,7 @@ run doesn't have to re-derive them:
    (never a lighter model for an investigation), `<sandbox_dir>/adhoc/<date>-<slug>/` for
    artifacts — whose writes agents commit themselves, own paths only, never asking, when
    `<sandbox_autocommit>` is on (**sandbox-tool**); loop
-   state never goes there, only to the state dir via `ff.rb`. Print the banner (REFERENCE §8)
+   state never goes there, only to the state dir via `ff.js`. Print the banner (REFERENCE §8)
    on `sweep`/`start`, before the first dispatch.
 
 ## Hard rules
@@ -71,7 +71,7 @@ run doesn't have to re-derive them:
   are resolutions, not acks: the **requester withdrawing their own ask** (step 4), and, **in the
   on-call channel only**, one of config's `oncall.resolved_reactions` by anyone — that
   channel's resolved convention (on-call mode, below). Nowhere else does someone else's ✅ count.
-- **Never hand-edit `state.json`** — every read and write goes through `scripts/ff.rb`.
+- **Never hand-edit `state.json`** — every read and write goes through `scripts/ff.js`.
   (`config.json` is the user's: edit it only with their go-ahead.) **The item key
   `<channel_id>:<ts>` is the only dedupe axis** (never a text hash — chat edits in place); a key
   already in `items` is never re-dispatched, in any status (an `acked` item the user answers
@@ -95,13 +95,13 @@ run doesn't have to re-derive them:
 | `tick` | One incremental pass from the stored watermarks. This is what the cron fires. |
 | `start [--interval 5m]` | Runs `sweep` first (seeds watermarks so tick 1 isn't a replay), then arms the cron. Prints the session-only + 7-day-expiry caveat. `--interval` 5m/10m/15m; anything under 5m is refused. |
 | `stop` | `CronDelete`; reports agents still live (does **not** kill them). |
-| `status` | State summary + `CronList` + the on-call line (`ff.rb oncall status`) + open asks (`ff.rb asks`) + `ff.rb config check`. State claims a cron but `CronList` is empty ⇒ "session restarted; run `start` again". |
+| `status` | State summary + `CronList` + the on-call line (`ff.js oncall status`) + open asks (`ff.js asks`) + `ff.js config check`. State claims a cron but `CronList` is empty ⇒ "session restarted; run `start` again". |
 
 **`--oncall auto|on|off`** (default `auto` when config has an on-call channel, else `off`) gates
 the on-call watch — see **On-call mode** below. Morning routine: `sweep`, then `start`.
 **Autonomy:** `--autonomous` is this skill's default (see above) — running it *is* the grant.
 `--approval-gated` DMs a proposed dispatch and holds. `--report-only` classifies and logs only: no
-agents, no DMs. **`--dry-run` = `--report-only` + a scratch state dir** — `ff.rb --dry-run`
+agents, no DMs. **`--dry-run` = `--report-only` + a scratch state dir** — `ff.js --dry-run`
 redirects state *and* day dirs to `<state-dir>/dryrun/` (config is still read from the real state
 dir), so a rehearsal writes real LOG rows and tick traces (header marked `DRY RUN`) while live
 state is untouched, and never publishes the dashboard; `init --dry-run --force` resets it
@@ -109,8 +109,8 @@ state is untouched, and never publishes the dashboard; `init --dry-run --force` 
 
 ### First run — config before anything else
 
-`ff.rb init` writes a `config.json` template beside `state.json` if none exists. Every `sweep` and
-`start` runs `ff.rb config check` first; if it fails, **stop and set it up with the user** — never
+`ff.js init` writes a `config.json` template beside `state.json` if none exists. Every `sweep` and
+`start` runs `ff.js config check` first; if it fails, **stop and set it up with the user** — never
 start watching on a guess:
 
 1. Seed `watch.channels` from the `<watch_channels>` setting if present; resolve each name to its
@@ -130,46 +130,46 @@ start watching on a guess:
 
 **The state dir defaults to `~/.local/state/firefighter-loop/`** (`$FF_STATE_DIR` /
 `--state-dir` override). To share one history with an off-laptop runner, make it a clone of a
-private `<state_repo>` in both places — `ff.rb sync` then commits and pushes it at the end of
+private `<state_repo>` in both places — `ff.js sync` then commits and pushes it at the end of
 every tick. It holds `config.json`, `state.json`, `days/<YYYY-MM-DD>/LOG.md`, `dashboard.html` and
 (cloud only) `artifacts/`. Never the scratchpad, which is wiped on restart. Schema: **REFERENCE §4**.
 
 ```bash
 S=<this skill's base directory>/scripts   # shown when the skill loads; for an installed plugin
                                           # it lives under ~/.claude/plugins/
-ruby $S/ff.rb init [--profile local|cloud] [--force]    # create state dir + state.json (+ config template)
-ruby $S/ff.rb config [--json] | config check | config init   # the user's watch config
-ruby $S/ff.rb set <dotted.key> <value>                  # profile scheduler mode interval cron
+node $S/ff.js init [--profile local|cloud] [--force]    # create state dir + state.json (+ config template)
+node $S/ff.js config [--json] | config check | config init   # the user's watch config
+node $S/ff.js set <dotted.key> <value>                  # profile scheduler mode interval cron
                                                         # dashboard channels — nothing else
-ruby $S/ff.rb get [<item key>|<dotted.key>] [--status S] [--json]   # an arg with ':' is an item
-ruby $S/ff.rb summary                                   # counts, live agents, watermarks, cron
-ruby $S/ff.rb verify                                    # schema check; exit 1 if anything is off
-ruby $S/ff.rb lease acquire [--holder NAME]             # exit 1 ⇒ another tick holds it
-ruby $S/ff.rb lease release
-ruby $S/ff.rb oncall status|auto|on|off                 # rotation mode (`on` = today only)
-ruby $S/ff.rb oncall active <shift_start_ts> | oncall inactive   # each tick's detection;
+node $S/ff.js get [<item key>|<dotted.key>] [--status S] [--json]   # an arg with ':' is an item
+node $S/ff.js summary                                   # counts, live agents, watermarks, cron
+node $S/ff.js verify                                    # schema check; exit 1 if anything is off
+node $S/ff.js lease acquire [--holder NAME]             # exit 1 ⇒ another tick holds it
+node $S/ff.js lease release
+node $S/ff.js oncall status|auto|on|off                 # rotation mode (`on` = today only)
+node $S/ff.js oncall active <shift_start_ts> | oncall inactive   # each tick's detection;
                                                         # `active` prints transition=true on the DM tick
-ruby $S/ff.rb watermark <channel_id|mentions> <ts|date> # advance one watermark
-ruby $S/ff.rb upsert <key> --json '<partial item>'      # deep-merge; arrays replace wholesale
-ruby $S/ff.rb link <key> <owner_key>                    # mark an item a duplicate of a live one
-ruby $S/ff.rb asks [--json]                             # acked items awaiting the user, by ask thread
-ruby $S/ff.rb decide <key> skip|mine|loop [--via dm|session|cli] [--answer-ts <reply ts>]
-ruby $S/ff.rb log-append --json '<row>' | --tick '<line>'
-ruby $S/ff.rb rollover                                  # move the day pointer, mkdir the day dir
-ruby $S/ff.rb sync '<commit message>'                   # pull --rebase → scoped commit → push
+node $S/ff.js watermark <channel_id|mentions> <ts|date> # advance one watermark
+node $S/ff.js upsert <key> --json '<partial item>'      # deep-merge; arrays replace wholesale
+node $S/ff.js link <key> <owner_key>                    # mark an item a duplicate of a live one
+node $S/ff.js asks [--json]                             # acked items awaiting the user, by ask thread
+node $S/ff.js decide <key> skip|mine|loop [--via dm|session|cli] [--answer-ts <reply ts>]
+node $S/ff.js log-append --json '<row>' | --tick '<line>'
+node $S/ff.js rollover                                  # move the day pointer, mkdir the day dir
+node $S/ff.js sync '<commit message>'                   # pull --rebase → scoped commit → push
 ```
 
 At `sweep`/`start`, `set` the keys the LOG header reads — `mode`, `profile`, `scheduler`,
 `cron.id`, plus **`interval` only on the loop** (`start`/`tick`; a `sweep` header renders
 `interval: n/a (sweep)` itself — don't invent one) — **before** the day's first `log-append`;
-`ff.rb` writes most of that header once, when it creates the file. The `channels:` line comes
+`ff.js` writes most of that header once, when it creates the file. The `channels:` line comes
 from config's `watch.channels` unless `set channels` overrides it. `dashboard.url` is the one
 exception — it's not required before the first append, because it typically doesn't exist yet
 (day 1's first publish hasn't happened): `cron:` and `dashboard:` are re-derived from current
 state and rewritten in place on *every* `log-append`, so a day-1 header that started
 `(unpublished)`/`(none)` self-heals once you `set` them (**REFERENCE §5**).
 
-Full help: `ruby $S/ff.rb --help`. `--state-dir DIR` / `--day-dir DIR` / `--config FILE`
+Full help: `node $S/ff.js --help`. `--state-dir DIR` / `--day-dir DIR` / `--config FILE`
 override the locations (env `FF_STATE_DIR` / `FF_DAY_DIR` / `FF_CONFIG`); **the day dir is
 derived from the resolved state dir** (`<state-dir>/days/<date>`), so moving the state moves its
 logs with it and the two can never end up in different repos. A cloud run just points
@@ -208,9 +208,9 @@ ToolSearch 'select:mcp__claude_ai_Slack__slack_read_channel,mcp__claude_ai_Slack
 ToolSearch 'select:CronCreate,CronList,CronDelete,SendMessage,TaskStop'
 ```
 
-1. **Lease.** `ff.rb lease acquire`; exit 1 = a fresh lease is held by another tick, exit silently.
-   A lease older than 15 min `ff.rb` clears and retakes itself; never delete `lease.lock` by hand.
-   Then `ff.rb rollover` for the day dir + `LOG.md`, and `ff.rb config --json` for this tick's
+1. **Lease.** `ff.js lease acquire`; exit 1 = a fresh lease is held by another tick, exit silently.
+   A lease older than 15 min `ff.js` clears and retakes itself; never delete `lease.lock` by hand.
+   Then `ff.js rollover` for the day dir + `LOG.md`, and `ff.js config --json` for this tick's
    watch set, user id, keywords, on-call block and caps. Hold the lease until step 9.
 
 2. **Read.** Every `watch.channels` entry, then the on-call channel (unless on-call is `off`), then
@@ -231,7 +231,7 @@ ToolSearch 'select:CronCreate,CronList,CronDelete,SendMessage,TaskStop'
    **not** allowlisted to the watched channels — a mention anywhere except a DM is in scope. But
    `after:` is **date**-granular, so the search window is wider than `--since`: **clip hits
    client-side to `ts >= (now − <since>)`**. An older hit is **tally only** — one `LOG.md`
-   tick-line count plus the terminal summary — never probed, never dispatched, and **never `ff.rb
+   tick-line count plus the terminal summary — never probed, never dispatched, and **never `ff.js
    upsert`'d into `items`**: the 24h backfill window applies to mentions too, but persisting an
    out-of-window key would poison it forever under the "a key in `items` is never re-dispatched"
    invariant, so a later wider sweep (`--since 48h`, a backfill) could never pick it back up
@@ -277,12 +277,12 @@ ToolSearch 'select:CronCreate,CronList,CronDelete,SendMessage,TaskStop'
 5. **Classify** from the text you already have (table below), with config's `watch.area` as the
    hint for what is engineering-in-scope. Escalate to a *single* Sonnet classifier only when >10
    unclassified survivors remain in one pass — realistically only sweep 1. An acknowledged item
-   whose class (mention/on-call promotion included) would dispatch ⇒ `ff.rb upsert` it `status:
+   whose class (mention/on-call promotion included) would dispatch ⇒ `ff.js upsert` it `status:
    acked` with its `ack` block — no agent, no step 8 (step 6 may still link it to a live
    duplicate, which closes the question). One that would not dispatch takes its usual log-only /
    `ignored` path, `note: acked`, and is never asked about.
 
-6. **Duplicate root cause** — same admin URL, record id, or error string as a live item ⇒ `ff.rb
+6. **Duplicate root cause** — same admin URL, record id, or error string as a live item ⇒ `ff.js
    link`, `status: linked`, and `SendMessage` the owning agent the new permalink instead of
    spawning a second one (agent-team's contended-resource rule).
 
@@ -295,8 +295,8 @@ ToolSearch 'select:CronCreate,CronList,CronDelete,SendMessage,TaskStop'
    item a **user** reply *is* their input — relay it into the item's DM thread and act on it
    (someone else's is context only). Advance `last_reply_ts_seen` in the same `upsert`. No new
    reply for **>7 days** ⇒ `done` (`reason: "stale — no thread activity 7d"`), out of the poll set.
-   **Ask answers:** `ff.rb asks --json`; for each thread with `poll: true`, one `slack_read_thread`
-   and `ff.rb decide` per answer found — reply answers first, then ask reactions (**Acknowledged
+   **Ask answers:** `ff.js asks --json`; for each thread with `poll: true`, one `slack_read_thread`
+   and `ff.js decide` per answer found — reply answers first, then ask reactions (**Acknowledged
    items**, below). A `loop` lands in this tick's step 8. On a foreground `sweep`, the in-session
    ask happens here too.
 
@@ -310,7 +310,7 @@ ToolSearch 'select:CronCreate,CronList,CronDelete,SendMessage,TaskStop'
 9. **Close out, in this order:** persist items → send pickup DMs, then one ❓ ask line per item
    newly parked `acked` (plus the day's header root first, if none yet), serially from the lead →
    advance watermarks → append `LOG.md` rows → regenerate + republish the dashboard *only if
-   something changed* → **`ruby $S/ff.rb sync "tick <UTC ts>: <n> new, <n> dispatched"`** →
+   something changed* → **`node $S/ff.js sync "tick <UTC ts>: <n> new, <n> dispatched"`** →
    release the lease → print one summary line (`· N awaiting your call` while any item is `acked`):
    `firefighter tick 09:15 — 0 new (billing-support: 1 acked, 3 noise) · 1 awaiting your call · 3 live · next 09:20`
 
@@ -321,7 +321,7 @@ ToolSearch 'select:CronCreate,CronList,CronDelete,SendMessage,TaskStop'
    `sync` on purpose: the pushed commit has to carry it, or the next cloud run replays the window.
 
    **Exit 1 = the push failed.** Put the watermarks back where the tick found them — note them
-   before step 9, and restore each channel's with `ff.rb watermark <ch> --forget` then `ff.rb
+   before step 9, and restore each channel's with `ff.js watermark <ch> --forget` then `ff.js
    watermark <ch> <old_ts>` (a plain `watermark` refuses to move backwards by design; the
    `mentions` watermark is exempt and needs no restore — REFERENCE §4). Say so in the tick line
    (`… · SYNC FAILED — watermarks held`) and DM it. The next tick redoes the window; the item key
@@ -357,19 +357,19 @@ as an unacknowledged item would be).
   stall the loop), never a cloud run. After step 7, persist the `acked` items first, then
   `AskUserQuestion` (load it with `ToolSearch` if deferred), ≤4 items per call, options **Skip
   (default)** / **I'll work on it myself** / **Have the loop work on it**, each labeled with the
-  title, class, permalink and their ack. Record each answer with `ff.rb decide <key>
+  title, class, permalink and their ack. Record each answer with `ff.js decide <key>
   <skip|mine|loop> --via session`; anything left unanswered falls through to the DM.
 - **By DM otherwise** — one **❓ ask thread per day** in the user's self-DM (**REFERENCE §3d**):
   the day's first ask posts a header root, and **each item is its own one-line threaded reply**,
-  so a reaction on it names exactly one item. Items are numbered in order (`ff.rb asks` gives
+  so a reaction on it names exactly one item. Items are numbered in order (`ff.js asks` gives
   today's thread and the next number); lines go out in step 9 and count toward the DM budget;
   record `ack.ask {channel_id, thread_ts, ts, n}` on each item, `ts` being its own line.
-- **Reading the answer, every tick (step 7).** `ff.rb asks --json`; each thread with `poll: true`
+- **Reading the answer, every tick (step 7).** `ff.js asks --json`; each thread with `poll: true`
   (an open item, ≤7 days old) costs one `slack_read_thread`, which carries both answer kinds:
-  - a **reply** matching `<n|all> skip|mine|loop` (grammar **REFERENCE §1h**) ⇒ `ff.rb decide
+  - a **reply** matching `<n|all> skip|mine|loop` (grammar **REFERENCE §1h**) ⇒ `ff.js decide
     <key> <answer> --via dm --answer-ts <reply ts>`;
   - the **ask reaction** (config `asks.reaction`, default 🤖 `robot_face`) **on an open item's
-    line** ⇒ `loop`: `ff.rb decide <key> loop --via reaction --answer-ts <that line's ts>`. The
+    line** ⇒ `loop`: `ff.js decide <key> loop --via reaction --answer-ts <that line's ts>`. The
     self-DM has one member, so the count is enough. Only if the thread read turns out to show no
     reactions at all, fall back to one `slack_get_reactions` per entry of `asks --json` →
     `reaction_probes` (open items' lines only).
@@ -382,7 +382,7 @@ as an unacknowledged item would be).
 - **Outcomes.** `skip` ⇒ `ignored`. `mine` ⇒ `user_owns` — closed and shown on the dashboard as
   theirs, though a newer `<n> loop` reply can still reopen it while no agent has started. `loop` ⇒ `new`, dispatched in that tick's step 8 under the normal caps, with the brief
   saying they acknowledged it and asked for it anyway (**REFERENCE §2**). **Silence ⇒ it stays
-  `acked`**: skipped, and answerable. After 7 days the thread is no longer polled, but `ff.rb
+  `acked`**: skipped, and answerable. After 7 days the thread is no longer polled, but `ff.js
   decide` and an in-session answer still work. A change of mind before dispatch is just a newer
   reply; once an agent owns it, `decide` refuses — for a reply and a reaction alike, so nothing is
   ever dispatched twice, and nothing answers an item before it was asked (a reaction must sit on
@@ -402,7 +402,7 @@ on-call queue on someone else's day means triaging their shift.
 - **Detect (auto).** One extra on-call channel read per tick — call shape and the rule in
   **REFERENCE §1g**. Active **iff the newest message from `oncall.rotation_bot_id` *today* names
   the user**, ignoring any announcement that was struck through, edited away or superseded by a
-  later one. That message's ts is the **shift start**. Record it each tick: `ff.rb oncall active <ts>`, else `ff.rb oncall
+  later one. That message's ts is the **shift start**. Record it each tick: `ff.js oncall active <ts>`, else `ff.js oncall
   inactive`. No `rotation_bot_id` configured ⇒ `auto` can't detect; use `on`.
 - **Shift window.** `shift_start` → now, ending early at the user's own sign-off (whatever the
   team's convention is) if they posted one (what follows is the next person's).
@@ -419,11 +419,11 @@ on-call queue on someone else's day means triaging their shift.
   with `mention` — it's the user's duty of the day. Classes and routes unchanged; an on-call
   request to change production state gets a **drafted** prod-script repair plus the steps to apply
   it (through a console or admin, when the project has them) — never a run.
-- **Forcing and expiry.** `--oncall on` is the user asserting "I'm on call" (`ff.rb oncall on`,
-  **today only**); `off` never reads the channel. `ff.rb rollover` clears the day's activation and
+- **Forcing and expiry.** `--oncall on` is the user asserting "I'm on call" (`ff.js oncall on`,
+  **today only**); `off` never reads the channel. `ff.js rollover` clears the day's activation and
   turns a forced `on` back to `auto`, so **the loop never inherits someone else's shift on a later
   day**.
-- **One DM, once.** On the auto tick that flips inactive→active (`ff.rb oncall active` prints
+- **One DM, once.** On the auto tick that flips inactive→active (`ff.js oncall active` prints
   `transition=true`), the lead DMs `On-call mode active for today — watching <channel>` plus
   the shift-start time. Never per tick; deactivation is a tick-summary note, never a DM.
 
@@ -531,7 +531,7 @@ The DM target is config `self.dm_channel_id`, else `self.user_id`.
 
 ## Log & dashboard
 
-`<state dir>/days/<YYYY-MM-DD>/LOG.md`, written via `ff.rb log-append`, which emits the header
+`<state dir>/days/<YYYY-MM-DD>/LOG.md`, written via `ff.js log-append`, which emits the header
 itself on first write — date (+ `[DRY RUN]`), mode, interval, profile, scheduler, cron, channels,
 dashboard url, state path, all read from state/config, so `set` them first. Then the item table
 `| time | ch | from | class | status | item | agent | artifacts | note |` (`item` is a markdown
@@ -542,17 +542,17 @@ line **per tick**, `HH:MM` — a silent loop must differ from a dead one. Format
 
 ```bash
 R=${FF_STATE_DIR:-~/.local/state/firefighter-loop}
-ruby $S/dashboard.rb $R/state.json $R/dashboard.html
+node $S/dashboard.js $R/state.json $R/dashboard.html
 ```
 
 Then publish with `Artifact` (icon `fire` on the first publish). **Once `dashboard.url` is set,
 pass it as the `url:` parameter on every publish** — that, not the file path, is what pins the
 artifact, so the URL survives a path move and any change of session. First publish only: no
-`url`, then record the one you get with `ff.rb set dashboard.url <url>`. Republish only when an
+`url`, then record the one you get with `ff.js set dashboard.url <url>`. Republish only when an
 item changed status, and always after `sweep`/`start`/`stop`. Fragment-form, theme-aware,
 non-ASCII normalized: a status strip (live / needs-you / your call / done today / next fire / on
 call), a "Needs you" then an "Acknowledged - your call" section, a column per status, one card per
-item, 7-day tally, last 20 ticks. The page's `<title>` lives in `dashboard.rb` (not an `Artifact`
+item, 7-day tally, last 20 ticks. The page's `<title>` lives in `dashboard.js` (not an `Artifact`
 `title` param, which is inert once the file has its own `<title>`) — keep it, and the icon, stable
 across redeploys.
 
@@ -582,13 +582,13 @@ listed in **one** DM. A second loss ⇒ `needs_you`, worktree surfaced. Never a 
 
 Probe first thing in every `sweep`/`tick`: **local** when config's `dispatch.repo`, Docker (if
 the repo's dev stack uses it) and `<sandbox_dir>` all exist; otherwise **cloud**. `--profile
-local|cloud` overrides (and `ff.rb init --profile` / `set profile` records it). Print it at start,
+local|cloud` overrides (and `ff.js init --profile` / `set profile` records it). Print it at start,
 stamp every DM and card.
 
 | | local | cloud |
 |---|---|---|
-| State dir | `~/.local/state/firefighter-loop/`, or a local clone of `<state_repo>` | that run's own clone of `<state_repo>` (`ff.rb --state-dir`) — required |
-| Sync | every tick ends `ff.rb sync '<msg>'` = `pull --rebase --autostash` → one scoped commit → `push` (a no-op without a repo); a failed push (exit 1) does **not** advance watermarks | identical |
+| State dir | `~/.local/state/firefighter-loop/`, or a local clone of `<state_repo>` | that run's own clone of `<state_repo>` (`ff.js --state-dir`) — required |
+| Sync | every tick ends `ff.js sync '<msg>'` = `pull --rebase --autostash` → one scoped commit → `push` (a no-op without a repo); a failed push (exit 1) does **not** advance watermarks | identical |
 | Scheduler | `CronCreate` 5-min tick | the platform's own schedule fires `… firefighter-loop sweep --since 2h --profile cloud` hourly; the 2h window overlaps the previous fire and the item key dedupes |
 | Depth | full | reduced — see the degradation table |
 
@@ -606,12 +606,12 @@ body: `scripts/routine.example.json`. **Ledger fallback:** state repo unreachabl
 | Symptom | Response |
 |---|---|
 | Chat MCP down / auth expired | Do **not** advance watermarks; mark the tick failed. After 2 consecutive failures, `CronDelete` + DM "firefighter stopped — re-auth and run `start`". |
-| `ff.rb config check` fails | Don't tick. Locally: set it up with the user (First run, above). Cloud/cron: log it, DM it once, stop. |
-| Two ticks overlap | The lease. `lease acquire` exit 1 ⇒ exit silently; a >15 min lease `ff.rb` clears and retakes on its own. |
+| `ff.js config check` fails | Don't tick. Locally: set it up with the user (First run, above). Cloud/cron: log it, DM it once, stop. |
+| Two ticks overlap | The lease. `lease acquire` exit 1 ⇒ exit silently; a >15 min lease `ff.js` clears and retakes on its own. |
 | Agent idle with no report | Ping **once** naming the missing fields; then read `verification-notes.md` + `git -C <worktree> diff` yourself; `TaskStop` on a second idle. Idle ≠ done ⇒ `needs_you`. |
 | More than the live cap | Queue; say "N queued" in the summary. Hard-refuse past `hard_cap`. |
 | Message deleted upstream | `ignored (deleted upstream)`; stand the agent down with `SendMessage`. |
-| `state.json` unparseable | Any `ff.rb` call exits **2** having already quarantined to `state.json.corrupt-<epoch>` and re-inited. DM the loss. **No auto-backfill** — a silent replay would re-dispatch everything. |
+| `state.json` unparseable | Any `ff.js` call exits **2** having already quarantined to `state.json.corrupt-<epoch>` and re-inited. DM the loss. **No auto-backfill** — a silent replay would re-dispatch everything. |
 | Session restarted / cron expiring | `status` says so; reconcile in-flight items per the restart rule. `start` again re-arms a fresh 7 days. |
 | Mention search lag | Also scan fetched thread replies for the literal `<@SELF_USER_ID>`; always `after:<yesterday>`. |
 | Agent reports a broken local stack | That is a **dev-doctor** symptom, not a defect in its work. Diagnose on the lead thread; agents never restart shared infra. |
@@ -660,10 +660,10 @@ body: `scripts/routine.example.json`. **Ledger fallback:** state repo unreachabl
 - **`slack_read_file` returns base64** for screenshots. Agents write it to a file and `Read` it.
 - **`status` is a read-only variable in zsh** — a helper script that assigns to it aborts
   silently. Name it `s`, `state`, anything else.
-- **Never compose flags into an unquoted shell variable.** `D="--state-dir X"; ruby ff.rb $D init`
-  passes `--state-dir X` as **one** argv word under zsh (no word-splitting) and `ff.rb` exits 1
+- **Never compose flags into an unquoted shell variable.** `D="--state-dir X"; node ff.js $D init`
+  passes `--state-dir X` as **one** argv word under zsh (no word-splitting) and `ff.js` exits 1
   with `invalid option: --state-dir X`. Write flags inline, or use an array:
-  `D=(--state-dir X); ruby ff.rb "${D[@]}" init`. A bare *path* variable is one word and is fine.
+  `D=(--state-dir X); node ff.js "${D[@]}" init`. A bare *path* variable is one word and is fine.
 - **`--dry-run` with an explicit `--state-dir` makes that dir the sandbox** — `init --dry-run
   --force --state-dir <live dir>` wipes live state. Rehearse via `$FF_STATE_DIR` (or no flag) so
   the redirect to `<state-dir>/dryrun/` applies.
@@ -675,7 +675,7 @@ body: `scripts/routine.example.json`. **Ledger fallback:** state repo unreachabl
 
 ## Working facts
 
-- Watch set, user id, DM target, on-call block, caps, repo and branch prefix: `ff.rb config`.
+- Watch set, user id, DM target, on-call block, caps, repo and branch prefix: `ff.js config`.
 - Slack permalinks: `https://<workspace>.slack.com/archives/<CID>/p<17 digits>`, plus
   `?thread_ts=<parent ts>` when the link points into a reply.
 - Per-issue RCA artifacts are **not** in the state dir — they stay in

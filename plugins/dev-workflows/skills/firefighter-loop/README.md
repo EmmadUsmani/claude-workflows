@@ -9,6 +9,8 @@ scheduled routine — see the bottom).
 
 - The `dev-workflows` plugin installed and current. The plugin cache only refreshes when the
   plugin's version changes — if a skill edit doesn't show up, bump the version and restart.
+- Node.js 18+ on `PATH`. The state CLI (`scripts/ff.js`) and the dashboard renderer
+  (`scripts/dashboard.js`) are plain Node scripts — built-ins only, no `npm install`.
 - A chat connector (Slack is the one this was built on) connected, with read access to the
   channels you want watched and permission to DM you.
 - The repo the agents will work in, on disk, with its dev stack working (Docker up if it uses it).
@@ -25,9 +27,9 @@ scheduled routine — see the bottom).
 # The skill's base directory is printed when the skill loads; for an installed plugin it is under
 # ~/.claude/plugins/ (find it with: ls -d ~/.claude/plugins/**/skills/firefighter-loop).
 S=<skill base directory>/scripts
-ruby $S/ff.rb init --profile local     # creates the state dir + a config.json template
+node $S/ff.js init --profile local     # creates the state dir + a config.json template
 $EDITOR ~/.local/state/firefighter-loop/config.json
-ruby $S/ff.rb config check             # must say OK before the loop will tick
+node $S/ff.js config check             # must say OK before the loop will tick
 ```
 
 `config check` fails until you fill in `self.user_id` (your chat user id), at least one
@@ -91,7 +93,7 @@ once.
 | **Chat DM to yourself** | One thread per issue: `🔥 Picked up …` when an agent starts, then `⏸ Needs you / ✅ Done / ⚠️ Blocked` with verdict, evidence, artifacts, explainer URL, PR, and **one imperative ask**. Plus at most one `❓ You acknowledged these` thread a day (below). No DMs for ignored/noise items — those appear once in the sweep-summary DM. |
 | **Terminal** | One line per tick; silent ticks read `firefighter tick HH:MM — 0 new … · N live · next HH:MM`. |
 | `<state dir>/days/<date>/LOG.md` | Every item considered with class/status/reason, plus a `## Ticks` trace (a silent loop must be distinguishable from a dead one). Committed and pushed each tick when the state dir is a repo. |
-| Dashboard Artifact | Needs-you first, then per-status cards; republished when an item changes. Generated from `<state dir>/dashboard.html`; its URL is in `ff.rb get dashboard.url`. |
+| Dashboard Artifact | Needs-you first, then per-status cards; republished when an item changes. Generated from `<state dir>/dashboard.html`; its URL is in `ff.js get dashboard.url`. |
 | `<sandbox_dir>/adhoc/<date>-<slug>/` | Each dispatched issue's RCA: `README.md` + an explainer page (also an Artifact), numbered scripts (`NN_diagnose.rb` read-only, `NN_…_repair.rb` DRY_RUN), and `verification-notes.md` in the agent's worktree. |
 | `<state_repo>` (optional) | The same state, pushed. A night's work is readable from anywhere, and a cloud run picks up exactly where the laptop left off. |
 
@@ -108,7 +110,7 @@ you hadn't acked it. Or reply in the thread with `2 loop`, `2 mine` (you're on i
 (or `all skip`). A reply always beats a reaction as long as no agent has started (a reaction
 usually dispatches on the next tick), and a reaction never overrides a reply — to turn a skip
 into a dispatch, reply `2 loop`. No answer = it stays skipped, and you can still answer later —
-the thread is read every tick for 7 days, and after that `ff.rb decide` works from any terminal.
+the thread is read every tick for 7 days, and after that `ff.js decide` works from any terminal.
 Items that wouldn't have been dispatched anyway (coordination, feature wishes) never generate a
 question.
 
@@ -125,14 +127,14 @@ default).
 ```bash
 S=<skill base directory>/scripts
 R=${FF_STATE_DIR:-~/.local/state/firefighter-loop}
-ruby $S/ff.rb summary                       # counts, live agents, watermark ages, cron, lease, config
-ruby $S/ff.rb get --status needs_you        # what is waiting on you
-ruby $S/ff.rb asks                          # acknowledged items still waiting on your call
-ruby $S/ff.rb decide <key> loop             # answer one from here (skip|mine|loop); the next
+node $S/ff.js summary                       # counts, live agents, watermark ages, cron, lease, config
+node $S/ff.js get --status needs_you        # what is waiting on you
+node $S/ff.js asks                          # acknowledged items still waiting on your call
+node $S/ff.js decide <key> loop             # answer one from here (skip|mine|loop); the next
                                             # tick dispatches a `loop`
-ruby $S/ff.rb verify                        # schema check
-ruby $S/ff.rb config check                  # is the watch config complete
-ruby $S/ff.rb oncall status                 # is on-call mode on today, and since when
+node $S/ff.js verify                        # schema check
+node $S/ff.js config check                  # is the watch config complete
+node $S/ff.js oncall status                 # is on-call mode on today, and since when
 tail -20 $R/days/$(date +%F)/LOG.md
 git -C $R log --oneline -5                  # did the ticks push? (state repo only)
 ```

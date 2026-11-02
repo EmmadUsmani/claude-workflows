@@ -8,8 +8,8 @@ summary DM and the start banner.
 
 ## 0. `config.json` — what the loop watches (the user's file)
 
-Lives beside `state.json` (`<state dir>/config.json`; `--config` / `$FF_CONFIG` override). `ff.rb
-init` writes the template; `ff.rb config check` must pass before any tick. It is synced with the
+Lives beside `state.json` (`<state dir>/config.json`; `--config` / `$FF_CONFIG` override). `ff.js
+init` writes the template; `ff.js config check` must pass before any tick. It is synced with the
 state repo, so a cloud run watches exactly what the laptop does. A full example:
 `scripts/fixtures/config.sample.json`.
 
@@ -102,7 +102,7 @@ mcp__claude_ai_Slack__slack_search_public_and_private {
   takes a date, not a ts: on a `--since 24h` run at 08:00 it returns everything since midnight
   *yesterday* — a 32h window, 8h more than asked for. Clip client-side: keep a hit only when
   `Message_ts >= (now − since)`. An older hit is **tally only**: it is **not** probed, **not**
-  dispatched, and — the exemption — **not `ff.rb upsert`'d into `items`**, only counted in the
+  dispatched, and — the exemption — **not `ff.js upsert`'d into `items`**, only counted in the
   `LOG.md` tick line and the terminal summary. Persisting it would burn its `<channel_id>:<ts>`
   key forever under the "a key in `items` is never re-dispatched, in any status" invariant, so a
   later wider sweep (`--since 48h`, a manual backfill) could never re-surface it even though it
@@ -289,7 +289,7 @@ this section so later ticks match it exactly.
   ends the window — messages after it belong to the next person.
 - No announcement from today at all (an overnight tick before the morning announcement) ⇒
   **inactive**, quietly. `auto` never guesses from yesterday's.
-- Record the outcome every tick: `ff.rb oncall active <bot ts>` or `ff.rb oncall inactive`.
+- Record the outcome every tick: `ff.js oncall active <bot ts>` or `ff.js oncall inactive`.
   `active` prints `transition=true` exactly on the inactive→active tick; that is the DM trigger,
   and it is why the lead must not recompute activation itself from `state.oncall.active` alone.
 
@@ -298,7 +298,7 @@ this section so later ticks match it exactly.
 shift_start_ts)`; user-authored dropped. Top-level roots only: a *reply* that tags the handle is
 not an item, and neither is any untagged traffic in that channel (the mention search already
 covers a personal mention there). The on-call channel's watermark uses the ordinary machinery —
-`ff.rb watermark <oncall.channel_id> <ts>`.
+`ff.js watermark <oncall.channel_id> <ts>`.
 
 **The resolved convention (this channel only).** Any of `oncall.resolved_reactions` by
 **anyone** ⇒ `ignored`, `reason: "resolved (✅ on-call convention)"`. The channel read's reaction
@@ -314,7 +314,7 @@ acknowledgement like any other and parks the item `acked`.
 
 ### 1h. Acknowledged items — the ask and reading the answer
 
-**The ask DM.** One ❓ thread per day in the user's self-DM, template §3d. `ff.rb asks --json` →
+**The ask DM.** One ❓ thread per day in the user's self-DM, template §3d. `ff.js asks --json` →
 `today`: `thread_ts: null` ⇒ post the day's header root first (numbering starts at 1); otherwise
 reply under it with `thread_ts` and number from `next_n`. **Each item is its own threaded reply —
 one line, one message** — so a reaction on it names exactly one item; the root carries no item.
@@ -322,13 +322,13 @@ Capture the channel and ts from each returned message link and record them on th
 is *its own line's* ts, `thread_ts` always the root's:
 
 ```bash
-ruby $FF upsert <key> --json '{"ack":{"ask":{"channel_id":"<DM channel>","thread_ts":"<root ts>","ts":"<this line ts>","n":3}}}'
+node $FF upsert <key> --json '{"ack":{"ask":{"channel_id":"<DM channel>","thread_ts":"<root ts>","ts":"<this line ts>","n":3}}}'
 ```
 
 Ask lines are DMs and count toward the ≤20/hour budget (§3). Over it, the rest wait: they stay
-`acked` and show under `unasked` in `ff.rb asks` until a later tick sends them.
+`acked` and show under `unasked` in `ff.js asks` until a later tick sends them.
 
-**Reading the answer** — every tick, step 7. `ff.rb asks --json` → `threads[]`; for each with
+**Reading the answer** — every tick, step 7. `ff.js asks --json` → `threads[]`; for each with
 `poll: true` (an open item, root ≤ `asks.poll_days` old):
 
 ```jsonc
@@ -374,7 +374,7 @@ an answer.
 so a later change of mind still resolves), then:
 
 ```bash
-ruby $FF decide <key> loop --via dm --answer-ts <that reply's ts>
+node $FF decide <key> loop --via dm --answer-ts <that reply's ts>
 ```
 
 The thread is re-read whole each tick; `decide` ignores an answer not newer than the item's last
@@ -385,7 +385,7 @@ item is `new` immediately and dispatches in the same tick's step 8.
 **An ask reaction** — apply replies first, then, for each open item whose ask line carries one:
 
 ```bash
-ruby $FF decide <key> loop --via reaction --answer-ts <that item's ask line ts>
+node $FF decide <key> loop --via reaction --answer-ts <that item's ask line ts>
 ```
 
 **Precedence: a reply beats a reaction, always.** A reaction has no timestamp of its own, so
@@ -402,14 +402,14 @@ double dispatch).
 **In-session** (foreground `sweep` only): `AskUserQuestion`, ≤4 questions per call, one per item —
 header the item's class, question `"You acknowledged <title> (<via>). Have the loop take it
 anyway?"`, options `Skip (default)` · `I'll work on it myself` · `Have the loop work on it`. Then
-`ff.rb decide <key> skip|mine|loop --via session`. Unanswered ⇒ falls through to the DM ask.
+`ff.js decide <key> skip|mine|loop --via session`. Unanswered ⇒ falls through to the DM ask.
 
 **Cost.** One read per thread with an open item, and there is one thread per day — so 0–1 calls
 on a normal tick, never more than 7; reactions ride along in that read. Only under the fallback
 does a reaction cost anything extra: one `slack_get_reactions` per **open** item's ask line, and
 none once every item in the thread is decided. After `poll_days` `poll` goes false (no thread
 read, no reaction probe): the item stays `acked` (skipped), still answerable in-session or with
-`ff.rb decide … --via cli`.
+`ff.js decide … --via cli`.
 
 ---
 
@@ -582,7 +582,7 @@ On-call mode active for today — watching <oncall channel name>
 Shift start <HH:MM> (per the rotation announcement) · env: <local|cloud>
 ```
 
-Sent only on the tick where auto detection flips inactive→active (`ff.rb oncall active` prints
+Sent only on the tick where auto detection flips inactive→active (`ff.js oncall active` prints
 `transition=true`), by the lead, at tick end. Not on every tick, not on `--oncall on` (the user
 already knows), and **never on deactivation** — that is one clause in the tick summary line
 instead (`… · oncall: shift ended`).
@@ -606,7 +606,7 @@ Then **one threaded reply per item** (`thread_ts` = the root), each a single lin
 ```
 
 Later ticks the same day add more one-line replies under that root, numbering carried on from
-`ff.rb asks` → `today.next_n`. Each line ends in the item key, so a stateless ledger rebuild can
+`ff.js asks` → `today.next_n`. Each line ends in the item key, so a stateless ledger rebuild can
 restore `acked` items the same way it restores pickups. When an answer is applied, the lead
 confirms once in the same thread (`✓ #2 → loop (reaction): dispatched ff-<slug>` / `✓ #1 → mine`
 / `✓ #3 → skip`). Neither a `1.` list line nor a `✓` confirmation matches the grammar (§1h), so
@@ -623,8 +623,8 @@ sent serially by the lead at tick end.
 
 `<state dir>/state.json`, in **both** profiles — locally `~/.local/state/firefighter-loop` (or a
 local clone of `<state_repo>`), in the cloud that run's own clone of `<state_repo>`.
-**`scripts/ff.rb` owns every write** — temp-file + rename, never hand-edited, never patched with
-`jq` or a heredoc. Read it with `ff.rb get`; publish it with `ff.rb sync '<msg>'`.
+**`scripts/ff.js` owns every write** — temp-file + rename, never hand-edited, never patched with
+`jq` or a heredoc. Read it with `ff.js get`; publish it with `ff.js sync '<msg>'`.
 
 The state dir's shape:
 
@@ -688,7 +688,7 @@ it can coincide with a real message — ages in `summary` and on the dashboard r
         "via": "reply", "ts": "<their reply ts>", "excerpt": "<their reply, ≤80 chars>",
         "ask": {"channel_id": "D…", "thread_ts": "<the day's ❓ root>",
                 "ts": "<the message that listed it>", "n": 3},
-        "decision": "loop", "decided_at": "…", // skip | mine | loop — written by `ff.rb decide`
+        "decision": "loop", "decided_at": "…", // skip | mine | loop — written by `ff.js decide`
         "decided_ts": "<answering reply ts>", "decided_via": "dm"   // dm | reaction | session | cli
                                                // (reaction: decided_ts = the ask line's ts)
       }
@@ -702,17 +702,17 @@ the on-call block through `oncall`, what to watch through `config.json`, and eve
 through `set` / `get`, which take a **dotted path**:
 
 ```bash
-FF=<this skill's dir>/scripts/ff.rb
-ruby $FF init --profile local            # create state + stamp the profile (local|cloud)
-ruby $FF set mode start                  # what armed the loop (sweep|tick|start); a value that
+FF=<this skill's dir>/scripts/ff.js
+node $FF init --profile local            # create state + stamp the profile (local|cloud)
+node $FF set mode start                  # what armed the loop (sweep|tick|start); a value that
                                          # parses as JSON is stored as JSON;
-ruby $FF set interval 5m                 # anything else is stored as the literal string
-ruby $FF set scheduler cron
-ruby $FF set cron.id C-7f3e              # dotted paths create the intermediate hash
-ruby $FF set dashboard.url 'https://claude.ai/…'
-ruby $FF get cron.id                     # dotted read; prints `(unset)` when absent
-ruby $FF get channels --json
-ruby $FF sync 'tick 09:15: 1 new, 1 dispatched'   # pull --rebase --autostash → scoped
+node $FF set interval 5m                 # anything else is stored as the literal string
+node $FF set scheduler cron
+node $FF set cron.id C-7f3e              # dotted paths create the intermediate hash
+node $FF set dashboard.url 'https://claude.ai/…'
+node $FF get cron.id                     # dotted read; prints `(unset)` when absent
+node $FF get channels --json
+node $FF sync 'tick 09:15: 1 new, 1 dispatched'   # pull --rebase --autostash → scoped
                                          # commit (state.json, config.json, days/,
                                          # dashboard.html, artifacts/, README, .gitignore) → push
 ```
@@ -740,23 +740,23 @@ anything else exits 1 (a typo'd top-level key would otherwise sit in state forev
 must be `local|cloud`, `scheduler` one of `local|cron|routine|cloud_agent`, `channels` an array.
 `get` treats an argument containing `:` as an **item key** and anything else as a dotted path.
 
-**The on-call block: `ff.rb oncall`, not `set`.** Its fields are not independent — forcing the
+**The on-call block: `ff.js oncall`, not `set`.** Its fields are not independent — forcing the
 mode stamps the day it was forced, and recording an activation has to report whether it was a
 *transition* — so it has its own subcommand (`oncall` is deliberately **not** in
 `SETTABLE_KEYS`; `get oncall.mode` still reads any leaf, dotted, as usual).
 
 ```bash
-ruby $FF oncall status                   # mode + active + shift start; --json for the raw block
-ruby $FF oncall auto                     # detect from the on-call channel every tick
-ruby $FF oncall on                       # "I'm on call today" — TODAY only; stamps forced_date
+node $FF oncall status                   # mode + active + shift start; --json for the raw block
+node $FF oncall auto                     # detect from the on-call channel every tick
+node $FF oncall on                       # "I'm on call today" — TODAY only; stamps forced_date
                                          # and activates from local midnight straight away
-ruby $FF oncall on 2040010000.000300     # ...with an explicit shift start
-ruby $FF oncall off                      # never read the on-call channel; clears any activation
-ruby $FF oncall active 2040010000.000300 # a tick's detection said yes: sets active + active_date
+node $FF oncall on 2040010000.000300     # ...with an explicit shift start
+node $FF oncall off                      # never read the on-call channel; clears any activation
+node $FF oncall active 2040010000.000300 # a tick's detection said yes: sets active + active_date
                                          # + shift_start_ts, prints `transition=<bool>`
-ruby $FF oncall inactive                 # a tick's detection said no. A forced `on` outranks it:
+node $FF oncall inactive                 # a tick's detection said no. A forced `on` outranks it:
                                          # while forced_date is today, this is a no-op that says so
-ruby $FF watermark CEXAMPLE9 2040020000.000400   # the on-call channel, ordinary watermark machinery
+node $FF watermark CEXAMPLE9 2040020000.000400   # the on-call channel, ordinary watermark machinery
 ```
 
 - **`transition=true` is the DM trigger** and appears on exactly one tick — the inactive→active
@@ -768,16 +768,16 @@ ruby $FF watermark CEXAMPLE9 2040020000.000400   # the on-call channel, ordinary
   a `mode: on` whose `forced_date` isn't today reverts to `auto` — so a new day always starts from
   detection and the loop never inherits someone else's shift. An activation already stamped today
   is left alone (rollover runs every tick; re-clearing it would re-fire the activation DM).
-- **"Today" is `ff.rb`'s local date** — the same notion `rollover` and `day.date` already use, on
+- **"Today" is `ff.js`'s local date** — the same notion `rollover` and `day.date` already use, on
   purpose (two definitions of today in one state file would be worse). Run the loop in the
   rotation's timezone if you can; the timezone-anchored *read* window is the lead's to compute
-  (§1g), not `ff.rb`'s.
+  (§1g), not `ff.js`'s.
 - **The block is read through a defaults merge and never written just to exist.** `init` does
   not write it, so a state created before the user filled in the on-call section still turns on:
   the effective mode is `auto` as soon as config has an `oncall.channel_id`, and `off` whenever it
   hasn't (whatever an older block says). The first explicit `oncall` write persists the user's
   choice. Channel and handle always come from the current config. `verify` checks its shape only
-  when present. Nothing in `ff.rb` migrates the live state file behind a concurrent tick's back.
+  when present. Nothing in `ff.js` migrates the live state file behind a concurrent tick's back.
 
 **`--dry-run`** redirects the state dir to `<state-dir>/dryrun` (unless `--state-dir` was passed
 explicitly — then that dir *is* the sandbox); the day dir follows on its own to
@@ -790,7 +790,7 @@ traces that no live tick will ever read. `init --dry-run --force` starts it clea
 forwarded to its agent, seeded to the root ts at dispatch. It is never derived from a channel read
 (§1c-bis) — every live item's thread is polled directly, `oldest: last_reply_ts_seen`.
 
-`status` values, exactly as `ff.rb` validates them: `new` (classified, queued) · `dispatched` ·
+`status` values, exactly as `ff.js` validates them: `new` (classified, queued) · `dispatched` ·
 `in_progress` · `paused` · `needs_you` · `acked` · `user_owns` · `done` · `ignored` · `linked`.
 There is **no** `blocked` status — a ⚠️ Blocked DM sets `needs_you`. Live = `dispatched` |
 `in_progress` | `paused`.
@@ -801,7 +801,7 @@ There is **no** `blocked` status — a ⚠️ Blocked DM sets `needs_you`. Live 
   newer `<n> loop` reply reopens it (it was never dispatched, so that is still a first dispatch).
   The dashboard lists it as theirs.
 
-**Deciding: `ff.rb decide`, not `upsert`.** It owns the `acked` transitions — `skip` ⇒ `ignored`,
+**Deciding: `ff.js decide`, not `upsert`.** It owns the `acked` transitions — `skip` ⇒ `ignored`,
 `mine` ⇒ `user_owns`, `loop` ⇒ `new` — stamps `ack.decision/decided_at/decided_ts/decided_via`,
 and refuses (exit 1) on an item with no `ack` block, one an agent already owns, or an `ignored`
 item that never had a decision (self-resolved, reaction-resolved, not engineering). An answer whose
@@ -811,17 +811,17 @@ no-op (exit 0, `unchanged …`). `--via reaction` (the ask reaction on the item'
 stamped with it — so any reply answer beats it (§1h). `asks` is read-only:
 
 ```bash
-ruby $FF asks                            # open asks, by ❓ thread: which to poll, today's next #
-ruby $FF asks --json                     # threads[] {channel_id, thread_ts, poll, items[]},
+node $FF asks                            # open asks, by ❓ thread: which to poll, today's next #
+node $FF asks --json                     # threads[] {channel_id, thread_ts, poll, items[]},
                                          # reaction_probes[] {channel_id, message_ts, key, n}
                                          # (open items' ask lines only), unasked[],
                                          # today {thread_ts, next_n}
-ruby $FF decide CEXAMPLE1:2040003600.000200 loop --via dm --answer-ts 2040007200.000500
-ruby $FF decide CEXAMPLE1:2040003600.000200 loop --via reaction --answer-ts 2040005400.000600
-ruby $FF decide CEXAMPLE1:2040003600.000200 mine --via session
+node $FF decide CEXAMPLE1:2040003600.000200 loop --via dm --answer-ts 2040007200.000500
+node $FF decide CEXAMPLE1:2040003600.000200 loop --via reaction --answer-ts 2040005400.000600
+node $FF decide CEXAMPLE1:2040003600.000200 mine --via session
 ```
 
-Invariants `ff.rb` enforces, and you must not work around:
+Invariants `ff.js` enforces, and you must not work around:
 - The item key `<channel_id>:<ts>` (or `<source>:<id>`) is the **only** dedupe axis — never a
   text hash.
 - A key present in `items` is never re-dispatched in any status (the restart rule's single
@@ -835,14 +835,14 @@ Invariants `ff.rb` enforces, and you must not work around:
   just the new entry — it holds both the README path and the explainer's Artifact URL. Each
   `upsert` is read-modify-write, so a tick must hold the lease across all of them; parallel
   upserts lose writes (a burst fired at once loses items).
-- `ff.rb` sets `channel_id`, `ts`, `first_seen_at` and `updated_at` itself; don't pass them.
+- `ff.js` sets `channel_id`, `ts`, `first_seen_at` and `updated_at` itself; don't pass them.
 
 ---
 
 ## 5. LOG.md format
 
-`<state dir>/days/<YYYY-MM-DD>/LOG.md`, appended via `ff.rb log-append`.
-**`ff.rb` writes the header itself**, from state (and config, for `channels:`), the first time the
+`<state dir>/days/<YYYY-MM-DD>/LOG.md`, appended via `ff.js log-append`.
+**`ff.js` writes the header itself**, from state (and config, for `channels:`), the first time the
 file is created — this is verbatim what it emits, so the way to change the header is to `set` the
 key it reads:
 
@@ -880,14 +880,14 @@ key it reads:
   artifacts from a real night's.
 - Header fields come from `state.mode`, `state.interval`, `state.profile`, `state.scheduler`,
   `state.cron`, `state.channels` (else config's `watch.channels`) and `state.dashboard.url`; an
-  unset one renders `(unset)` / `(none)` / `(unpublished)`. Set them with `ff.rb set` (§4) at
+  unset one renders `(unset)` / `(none)` / `(unpublished)`. Set them with `ff.js set` (§4) at
   `sweep`/`start`, before the first `log-append` of the day — most of the header is written once,
-  when the file is created. **`cron:` and `dashboard:` are the two exceptions**: `ff.rb`
+  when the file is created. **`cron:` and `dashboard:` are the two exceptions**: `ff.js`
   re-derives both from current state and rewrites those two lines in place on **every**
   `log-append` (row or tick), because `dashboard.url` in particular typically doesn't exist yet on
   day 1 — the first publish happens *after* the first items are logged. So a day-1 header that
   starts `dashboard: (unpublished)` / `cron: (none)` self-heals to the real values the moment you
-  `ff.rb set dashboard.url …` / `set cron.id …`, on the very next append. The rest of the header
+  `ff.js set dashboard.url …` / `set cron.id …`, on the very next append. The rest of the header
   (mode, interval, profile, scheduler, channels, state path) stays immutable once written.
 - `## Ticks` stamps are always **`HH:MM`** (a tick is logged when it runs) and `--tick` prefixes
   the stamp itself — pass the line **without any time of its own** (no "tick 09:15 —" prefix),
@@ -898,7 +898,7 @@ key it reads:
   `time`: `HH:MM` if that ts is today, `MM-DD HH:MM` if it is not. An explicit `time` still wins;
   with neither, `time` is now. Unknown keys other than `ts` still exit 1.
   ```bash
-  ruby $FF log-append --json '{"ts":"2040001800.000100","ch":"billing-support","from":"U…",
+  node $FF log-append --json '{"ts":"2040001800.000100","ch":"billing-support","from":"U…",
     "class":"INCIDENT","status":"dispatched","item":"[wrong currency symbol](<permalink>)"}'
   ```
 - **`interval` is loop-only.** On a `sweep` there is no interval to report, so the header renders
