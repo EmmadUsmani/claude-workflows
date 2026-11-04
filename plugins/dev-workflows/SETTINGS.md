@@ -63,7 +63,8 @@ _The Used by column is generated from the skills: `node scripts/settings_usage.j
   `--approval-gated` | `--autonomous`, and **`--autonomous` is the default** except where a
   skill's whole job is a gated action (prod-script repair, vendor-api-probe creates, destructive
   stack-surgery / worktree-create operations) — those stay draft-then-wait. No mode crosses the
-  gated list: posting where others see it, merges, production writes, product/architecture forks.
+  gated list in `personal-CLAUDE.md`, which includes posting where others see it, merges, production
+  writes and product/architecture forks.
   Questions get answers, not edits; pr-triage stays report-only on other people's PRs. An explicit
   flag from the user always wins.
 - **Outputs of a PR review** (deep-pr-review, pr-review-graph, one-pager): the review doc goes to

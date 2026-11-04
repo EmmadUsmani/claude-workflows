@@ -32,7 +32,7 @@ spells out what that covers). `--approval-gated` and `--report-only` are availab
 The *only* place these apply, and only to items this loop dispatched — stated verbatim so a future
 run doesn't have to re-derive them:
 
-1. **Propose→wait→act:** `sweep`/`start` without `--dry-run`/`--report-only` **is** the explicit
+1. **The autonomy grant:** `sweep`/`start` without `--dry-run`/`--report-only` **is** the explicit
    per-session autonomy grant (the start banner enumerates it); nothing else inherits it.
 2. **PRs open without asking:** only for dispatched items — branch in a dedicated worktree,
    commit there (committing verified work is the default everywhere, not an exception), PR

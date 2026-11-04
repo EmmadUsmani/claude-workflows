@@ -22,7 +22,7 @@ server, production — drop out of the brief for a library or CLI repo that has 
   not in a pre-approval round. Three modes: `--report-only` (investigate and partition, spawn
   nothing — plan and hold), `--approval-gated` (approval per item before each wave — only when
   the user asks for it), and **`--autonomous`, the default**. No mode lets agents past the gated
-  list (posting where others see it, merges, production writes, product/architecture forks) —
+  list in `personal-CLAUDE.md` (posting where others see it, merges, production writes, product/architecture forks and the rest) —
   those come back to the user as drafts or decisions. A multi-PR feature that hasn't been planned
   yet is planned with the user first; after their sign-off, run every wave autonomously. Pass the
   mode through to any skill you hand off to (`pr-triage` in particular).
