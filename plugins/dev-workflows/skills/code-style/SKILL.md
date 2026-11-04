@@ -25,7 +25,8 @@ typical corrections, paraphrased.
   proposed shape, then stop. This is the most-repeated correction across sessions:
   *"Consider this and let me know what you think — DO NOT CHANGE CODE YET."*
   A question ("does this make sense?", "why not X?") is a request for analysis, not a patch.
-  This is the plugin-wide default (propose → wait → act), not a code-style quirk.
+  This is the plugin-wide rule, not a code-style quirk — see `personal-CLAUDE.md` § *Autonomy:
+  act, then report* (questions, explorations and lines under the user's review get zero edits).
 - A question phrased as *"why not just…"* is a correction with a question mark. Answer it
   honestly — if the simpler shape is right, say so and propose it; if it isn't, say why.
 - Never assert "this is the convention here" from memory. Grep first, and count:

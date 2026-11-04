@@ -224,7 +224,7 @@ were added or a skill's role changed (a typical pass is one mapper, a handful of
    present — e.g. a code-style self-review before any diff; verify-in-app for user-visible
    changes; pr-triage after every PR; production reads through the warehouse first and writes only
    through prod-script; worktree/dev-doctor pointers; research-doc/visual-explainer artifact
-   offers; agent-team for multi-part work; the propose → wait → act posture) with **canonical wording** so every skill phrases each gate
+   offers; agent-team for multi-part work; the act-then-report posture with its gated list — the cross-cutting rules file's autonomy section) with **canonical wording** so every skill phrases each gate
    identically, a per-skill edit list, and edit groups with **one owner per file**. Decide the
    contradictions it surfaces yourself before launching editors.
 2. **Apply** (one editor per group, strongest model for substantive steps / cheaper for
@@ -234,7 +234,7 @@ were added or a skill's role changed (a typical pass is one mapper, a handful of
    "X Phase N / §Y / `--flag` / mode" reference must match the target's current headings and
    argument-hint; delegation stubs must not contradict their owner (owner wins); required routing
    pairs resolve in one hop both ways; one autonomy vocabulary
-   (`--report-only | --approval-gated | --autonomous`). Editors introduce real defects here, including files
+   (`--report-only | --approval-gated | --autonomous`, default `--autonomous` except where a gated action is the skill's whole job). Editors introduce real defects here, including files
    asserting a flag the owner says does something else.
 4. Re-run `xref.js` and §8; bump the plugin version; commit (precise staging) if asked; report
    what changed and anything explicitly left uncommitted.

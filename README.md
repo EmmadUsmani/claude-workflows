@@ -21,7 +21,7 @@ Or load it into a single session without installing: `claude --plugin-dir /path/
 
 ### Working-style preferences (`personal-CLAUDE.md`)
 
-Plugins can't ship always-on context, so the cross-cutting rules the skills assume (propose → wait → act; commit verified work, staged precisely; never reclaim shared local state; no direct production access; never read `.env`) live in [`personal-CLAUDE.md`](personal-CLAUDE.md). Append it to your user-level `~/.claude/CLAUDE.md`, then fill in its settings block:
+Plugins can't ship always-on context, so the cross-cutting rules the skills assume (act, then report — with a short gated list for posts others see, merges, production writes and product/architecture forks; commit verified work by default, staged precisely; never reclaim shared local state; no direct production access; never read `.env`) live in [`personal-CLAUDE.md`](personal-CLAUDE.md). Append it to your user-level `~/.claude/CLAUDE.md`, then fill in its settings block:
 
 ```bash
 cat /path/to/claude-workflows/personal-CLAUDE.md >> ~/.claude/CLAUDE.md
@@ -37,7 +37,7 @@ Skills refer to settings as `<setting_name>` — `<sandbox_dir>`, `<notes_dir>`,
 
 Skills compose rather than duplicate. Every skill that produces code runs the `code-style` self-review checklist before presenting a diff; anything with a user-visible surface goes through `verify-in-app`; every PR ends in `pr-triage`; every production fact goes through `warehouse-data` first and every production write through a `prod-script` repair the user runs; isolated work goes through `worktree-create` / `worktree-dev-server`, with `dev-doctor` when the stack misbehaves; investigations offer `research-doc` / `visual-explainer` write-ups and promote reusable scripts via `sandbox-tool`; multi-part work runs through `agent-team`. `bug-intake` is the entry point for incoming issues; `firefighter-loop` watches your channels and dispatches an agent per issue through that same intake → ship-pr → pr-triage chain, and anything running away from the laptop defers to `cloud-runtime` for what degrades.
 
-Mode-bearing skills share one autonomy vocabulary — `--report-only` (default) | `--approval-gated` | `--autonomous` — and default to **propose → wait → act**. The one standing exception: anything a skill writes into `<sandbox_dir>` is committed there immediately (own paths only, never pushed) when `<sandbox_autocommit>` is on. `firefighter-loop` is the one skill whose default is autonomous; it states its exceptions in its own hard rules.
+Mode-bearing skills share one autonomy vocabulary — `--report-only` | `--approval-gated` | `--autonomous` — and default to **act, then report** (`--autonomous`): execution within the ask runs without approval, while anything on the gated list (posting where others see it, merges, production writes, product/architecture forks) and the skills whose whole job is a gated action (`prod-script` repair, `vendor-api-probe` creates, destructive `stack-surgery` / `worktree-create` operations) stay draft-then-wait. Questions still get answers, not edits; `pr-triage` stays report-only on other people's PRs. The one standing exception: anything a skill writes into `<sandbox_dir>` is committed there immediately (own paths only, never pushed) when `<sandbox_autocommit>` is on. `firefighter-loop` runs unattended, so running it is the autonomy grant; it states its exceptions in its own hard rules.
 
 ### Shipping & reviewing PRs
 
@@ -45,7 +45,7 @@ Mode-bearing skills share one autonomy vocabulary — `--report-only` (default) 
 |-------|--------------|
 | `/ship-pr` | End-to-end PR: branch (stacked when needed), implement, code-style self-review, verify by driving the app, before/after screenshots embedded so they render in private repos, non-draft PR, hand-off to pr-triage. Delegates to `cloud-agent-work` when `<cloud_agent>` is set. |
 | `/cloud-agent-work` | Delegate a PR-shaped change to a cloud coding agent (Niteshift, Claude Code on the web…): self-contained brief, dispatch, watch until the PR settles, independently verify every CI failure / review comment / agent commit, steer fixes — never push yourself. |
-| `/pr-triage` | Watch an open PR (or stack) for CI and bot findings (Bugbot, CodeRabbit, …), verify each claim against the code, then fix + reply + resolve — or, by default, report verdicts and hold. |
+| `/pr-triage` | Watch an open PR (or stack) for CI and bot findings (Bugbot, CodeRabbit, …), verify each claim against the code, then fix + reply + resolve — autonomously on PRs you or the cloud agent opened; on anyone else's PR it reports verdicts and holds. |
 | `/deep-pr-review` | Context-gathered review of someone else's PR into a numbered local review doc in `<review_dir>`; posts nothing. Builds the review graph and a PR one-pager by default. |
 | `/pr-review-graph` | Interactive, pannable review graph of a PR: every changed code unit a node, every dependency a typed edge, a drawer with the verbatim diff, findings and screenshots. |
 | `/code-style` | Code-shape preferences — abstraction barriers, domain boundaries, declarative over imperative, one source of truth, sparse comments — with before/after examples and a self-review checklist. |

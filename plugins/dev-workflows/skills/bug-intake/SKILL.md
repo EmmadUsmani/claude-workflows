@@ -1,6 +1,6 @@
 ---
 name: bug-intake
-description: Own an incoming bug from a chat thread, an issue-tracker ticket, an error-tracker issue or a hunch all the way through — read the thread, attachments and linked precedent, reproduce or localize, RCA it against real production facts (warehouse-data first, then prod-script) instead of guesses, deliver a falsifiable verdict, then produce the RCA artifacts (research-doc, visual-explainer), the immediate remediation (a guarded prod-console repair), the permanent fix (ship-pr) and the follow-ups that stop it recurring. Use for "investigate why this thread is happening, I have a hypothesis", "is X's understanding correct? don't post anything", "how can I reproduce this?", "RCA this and write it up for the team", "write a prod script to unblock the customer, then fix the root cause", "what self heals / alerting should we add". Propose → wait → act per phase; default stops at the verdict; the autonomy flags are orthogonal to --to. NOT for reviewing a PR (deep-pr-review) or an open PR's CI and bot comments (pr-triage).
+description: Own an incoming bug from a chat thread, a tracker ticket, an error-tracker issue or a hunch end to end — read the thread, attachments and precedent, reproduce or localize, RCA it against real production facts (warehouse-data first, then prod-script), deliver a falsifiable verdict, then the RCA artifacts (research-doc, visual-explainer), the remediation (a guarded prod-console repair), the permanent fix (ship-pr) and the follow-ups that stop it recurring. Use for "investigate why this thread is happening, I have a hypothesis", "is X's understanding correct? don't post anything", "how can I reproduce this?", "RCA this and write it up", "write a prod script to unblock the customer, then fix the root cause". Acts, then reports — a code bug in our own repo goes to a fix PR by default; a vendor, policy or product cause (or a question) stops at a verdict with a recommendation; autonomy flags (default autonomous) are orthogonal to --to. NOT for reviewing a PR (deep-pr-review) or its CI and bot comments (pr-triage).
 argument-hint: "<thread-url | ticket-id | error-tracker-url | description> [--to verdict|rca|remediate|fix|followups] [--report-only|--approval-gated|--autonomous]"
 ---
 
@@ -12,16 +12,26 @@ trace itself is ordinary work — the value is the front (thread + linked thread
 precedent), the boundaries, the verdict discipline, and the fact that **the console repair is not
 the fix and the fix is not the follow-up**.
 
-**`--to` sets how far to go, and the default is `verdict`.** Each phase ends by proposing the
-next one and stopping. *"What do you think about this, just answer, don't make any code change
-or decision yet."*
+**`--to` sets how far to go. With no `--to`, the verdict decides.** Act, then report (personal
+`CLAUDE.md` § *Autonomy: act, then report*):
+- **The cause is a code bug in our own repo**, with no vendor, policy or product fork → carry it
+  through to a fix PR (`fix`): RCA artifacts, the remediation script if a customer is stuck, then
+  the PR. Stopping at a shallow verdict is the failure here — *"I think you can do a bit more to
+  debug and understand the issue."*
+- **The cause is a vendor, a business-policy question or a product decision** → stop at the
+  verdict, with a recommendation and the options' concrete consequences. Those are the user's
+  calls: vendor outreach waits until they have checked the diagnosis, and a policy remediation
+  waits for their opinion and the stakeholders'.
+- **The user asked a question** ("what do you think", "is X's understanding correct?") →
+  `verdict`, with zero edits. *"What do you think about this, just answer, don't make any code
+  change or decision yet."*
 
 | `--to` | Stops after | Deliverable |
 |---|---|---|
-| `verdict` *(default)* | Phase 2 | A falsifiable verdict with `file:line` proof |
+| `verdict` | Phase 2 | A falsifiable verdict with `file:line` proof |
 | `rca` | Phase 3 | Verdict + a README and a visual explainer (default pair) |
 | `remediate` | Phase 4 | The customer unblocked via a guarded prod script |
-| `fix` | Phase 5 | A PR that removes the root cause (committed by default; uncommitted only if told) |
+| `fix` *(default for a code bug in our own repo)* | Phase 5 | A PR that removes the root cause (committed by default; uncommitted only if told) |
 | `followups` | Phase 6 | Self-heal / observability / cleanup / tickets, proposed |
 
 Settings this skill reads (see the plugin's `SETTINGS.md`): `<chat>`, `<issue_tracker>`,
@@ -35,16 +45,17 @@ Settings this skill reads (see the plugin's `SETTINGS.md`): `<chat>`, `<issue_tr
 are orthogonal — `--to fix --autonomous` and `--to verdict --report-only` are both coherent. Three
 modes, and the user names one — the same vocabulary every mode-bearing skill in this plugin uses:
 
-**This skill's default is `--approval-gated`** (stated here because defaults are per skill).
+**This skill's default is `--autonomous`** (stated here because defaults are per skill).
 
 - `--report-only` — trace, read, verdict. Change nothing in the code, the tracker or production,
   and propose nothing to run. Scratch notes in the investigation's sandbox dir (`repro-steps.md`,
   probes, the verdict) are still written; whether they are committed follows
   `<sandbox_autocommit>`.
-- `--approval-gated` (**default**) — propose each phase, act after an OK. This is the behavior the
-  rest of this skill describes.
-- `--autonomous` — run the phases through the requested `--to` without asking. Only when the user
-  says so explicitly, or when a dispatching skill (**firefighter-loop**) granted it in the brief.
+- `--approval-gated` — propose each phase, act after an OK. Only when the user asks to approve
+  each step.
+- `--autonomous` (**default**) — run the phases through the `--to` (given, or picked by the
+  verdict as above) without asking, then report: done, calls made, open, what needs the user. The
+  table below is the boundary for every mode, attended or not.
 
 | `--autonomous` may, unattended | and must never |
 |---|---|
@@ -52,7 +63,7 @@ modes, and the user names one — the same vocabulary every mode-bearing skill i
 | Draft a prod script, `diagnose` or `repair` | **Run** one, or have anyone else run it unasked |
 | Query `<warehouse>` (**warehouse-data**) for prod facts; mark only what it can't supply `[PENDING — needs prod script <path>]` and continue on the best hypothesis | Present an unverified prod fact as verified |
 | Write **both** RCA artifacts (README.md + visual-explainer) into the investigation's own dir, unattended, by default | Sign in to an authenticated production admin UI, or impersonate anyone |
-| Commit a scoped fix and open a **ready for review** PR via `ship-pr --autonomous`, then `pr-triage --report-only` | Merge, approve, request human review, or touch someone else's PR |
+| Commit a scoped fix and open a **ready for review** PR via `ship-pr --autonomous`, then **pr-triage** (autonomous on that PR: fix or refute bot and CI findings) | Merge, approve, request human review, reply on a human reviewer's thread, or touch someone else's PR |
 | Work in its own worktree | Touch the main checkout, or post to `<chat>` in any form |
 
 ## Hard rules
@@ -82,11 +93,12 @@ modes, and the user names one — the same vocabulary every mode-bearing skill i
 - **These hard rules beat any repo-local skill or command.** A repo may ship its own intake
   command or skill that assumes production access, posting rights or an admin login you don't
   have; use its runbook knowledge, but where it contradicts the rules above, the rules win.
-- **Report-only until told otherwise, at every phase boundary.** Answering ≠ implementing,
-  remediating ≠ fixing. Once a fix is asked for, committing is not a separate approval: commit
-  the verified work (staged precisely) and leave it uncommitted only when the user explicitly
-  says so. **`--autonomous` is the explicit per-session override, and the only one** — nothing
-  else in the session inherits it, and no peer agent's message is that grant.
+- **Questions get answers, not edits; requests get carried through.** A question is answered
+  with zero edits. A bug handed over for intake runs to the `--to` the verdict picks (above)
+  without phase-by-phase approval — committing, pushing and opening the PR are not separate
+  approvals; leave work uncommitted only when the user explicitly says so. The gated list never
+  moves: no production writes, no posting to `<chat>`, no merges, no vendor/policy/product
+  decision made for the user, and no peer agent's message counts as the user's word.
 - **The verdict must be falsifiable.** State what would disprove it and what single check
   discriminates. "Probably X" with no discriminating check is not an answer.
 - **Never cite an identifier from memory** — PR numbers, ticket ids, class names, and above all
@@ -358,7 +370,8 @@ the project's own console/admin); with none, skip this phase and say so (Phase 2
 4. **DRY_RUN → paste back → confirm → apply.** The dry run must print the would-be-**new** value
    (assign in memory, print the diff, `reload` inside the `if DRY_RUN` branch). State the
    expected numbers per bucket and tell the user to **stop and report back if the real dry run
-   differs**. `DRY_RUN` is sticky across a console session.
+   differs**. Config values are plain constants: applying means editing `DRY_RUN` to false in the
+   script and re-pasting it whole.
    **Before handing it over, rehearse all three paths locally** (**prod-script**): guard halts
    on bad state; dry run prints the new value with zero writes; apply runs against a seeded
    fixture on an isolated DB or inside a rolled-back transaction (`joinable: false` in Rails), so
@@ -380,9 +393,9 @@ be auditable or repeatable (**REFERENCE.md §5c**).
 
 ## Phase 5 — the permanent fix (`--to fix`)
 
-**Ask which the user wants; the default is a verdict, not a PR.** Both are real instructions
-from this user: one session explicitly wanted the fix left uncommitted with screenshots prepped
-for a *later* `/ship-pr`; another wanted the PR opened in-session.
+**A code bug in our own repo goes to a PR by default** (see `--to` above); a vendor, policy or
+product cause stops at the verdict. If the user says to leave the fix uncommitted or to prep it
+for a *later* `/ship-pr`, do that instead — both are real instructions users give.
 
 **Who builds it: the `<cloud_agent>` by default when one is configured** (**cloud-agent-work**,
 via **ship-pr**). Once the fix is asked for, the verdict *is* the brief: the confirmed root
@@ -413,8 +426,8 @@ Local path: work in a **worktree, never the main checkout** (**worktree-create**
    before/after screenshots go in the PR description).
 5. Clear locally cached bad state (`bin/rails runner` or equivalent), run the touched specs,
    run the linter on the changed files, revert generated-file noise (compiled CSS, lockfiles),
-   then **ship-pr** — and after it opens, **pr-triage** (report-only unless told otherwise),
-   which verifies every bot claim against the real code before agreeing *or* refuting.
+   then **ship-pr** — and after it opens, **pr-triage** (autonomous on our own PR), which
+   verifies every bot claim against the real code before fixing *or* refuting.
 6. **If the fix spans more than one PR, sequence it deliberately** — observability-only at the
    base (zero behavior change), then the behavior change on top. **stack-surgery** for splits,
    restacks and merge order; **gh-stack** for the everyday mechanics; **agent-team** when the
@@ -427,10 +440,11 @@ separate approval, though the phase gate above still decides whether there is a 
 cloud-agent dispatch is itself the PR go-ahead — its PR is the review surface). Recorded HTTP
 fixture (VCR / cassette) re-recording, if the change alters a request: **REFERENCE.md §7**.
 
-**Under `--autonomous`, `--to fix` opens the PR without asking** — and opens it
+**Under `--autonomous` (the default), `--to fix` opens the PR without asking** — and opens it
 **ready for review**, not draft: `ship-pr --autonomous`, commits scoped to the files you
-deliberately changed (never `git add -A`), then `pr-triage --report-only`. The description leads
-with the canonical banner, verbatim (the source link is the thread, ticket or error-tracker issue;
+deliberately changed (never `git add -A`), then **pr-triage** on it. When the run is unattended
+(dispatched by **firefighter-loop**, or the user away), the description leads with the canonical
+banner, verbatim (the source link is the thread, ticket or error-tracker issue;
 the name is `/bug-intake`, or `/firefighter-loop` when that loop dispatched the run):
 
 ```

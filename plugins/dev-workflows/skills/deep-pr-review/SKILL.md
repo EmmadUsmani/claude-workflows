@@ -51,9 +51,10 @@ published). The ticket goes in the doc's header, not its file name; a GitHub iss
   with real usage counts and prior art, never with framework opinion.
 - **Build the review graph and the one-pager unless told not to** (§6b, §6c). "No graph" /
   `--no-graph` and "no one-pager" / `--no-one-pager` skip one each; "just the doc" skips both;
-  nothing else does. They are the only review outputs that get published, and only as
-  **private** Artifacts for the user — they name a colleague's code, so they're never shared or
-  linked on GitHub without the user asking. `--no-publish` builds them locally only.
+  nothing else does. They and the visual report (§5) are the review outputs that get
+  published, and only as **private** Artifacts for the user — they name a colleague's code, so
+  they're never shared or linked on GitHub without the user asking. `--no-publish` builds them
+  locally only.
 - **Subagent models:** a capable mid/top-tier model for the Explore fan-out (e.g. sonnet or opus),
   and never a model the user has said not to use for agents.
 
@@ -212,9 +213,11 @@ visual report. It repeatedly *confirms or kills* findings that static reading on
   structure, the real-class-names-plus-glossary rule, the serve-and-drive verification, and the
   `file://`-is-blocked workaround. What this skill mandates: a **"not exercised"** section
   listing what the fixture couldn't cover, and every finding number (`F3`) visible on the
-  screenshot that evidences it. **The visual report stays local — never publish it as a
-  Claude Artifact**; it names a colleague's code. (The review graph and the one-pager are the
-  published outputs, privately.)
+  screenshot that evidences it. **Publish the visual report as a private Claude Artifact
+  by default** (keep the local copy as the source; republish to the same URL on updates). It
+  names a colleague's code, so it stays private: never shared or linked on GitHub without the
+  user's word, and F-labels and local paths are stripped from anything that does leave the
+  user's hands.
 - Capture a **before** (base) and **after** (head) screenshot of every surface the PR changes,
   into the contract's `screenshots/{before,after}/`: the review graph boxes each one on the
   element its node renders, so a capture taken for one finding usually serves two or three nodes.
@@ -432,7 +435,7 @@ review-support explainer, hand off to **research-doc**.)
   recipe); this skill supplies the PR, its context and the graph's verified facts. Published
   privately by default.
 - **Building the visual report page in §5** → `visual-explainer` (mode `explain`); this skill
-  supplies the findings and the "not exercised" section. Local-only, never an Artifact.
+  supplies the findings and the "not exercised" section. Published privately by default.
 - **Tests won't run because the environment is wrong**, not because the PR is → `dev-doctor`.
 - **A production count behind a finding's severity** → `warehouse-data`.
 - **Reading the originating bug report before the diff** → `bug-intake` (intake → RCA →

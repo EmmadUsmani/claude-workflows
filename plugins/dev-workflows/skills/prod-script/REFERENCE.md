@@ -134,14 +134,12 @@ Save as `NN_<action>.rb` beside the inspect script.
 
 # <What this changes, and what NN_inspect.rb (output in NN-output.json) confirmed.>
 #
-# DRY RUN (default, no writes):  paste this whole file.
-# APPLY:                         type `DRY_RUN = false` at the prompt, then paste the file again.
-#   NB: DRY_RUN and every flag below are sticky for the rest of the console session -- open a
-#   fresh console afterwards. Re-pasting prints "already initialized constant" warnings for the
-#   plain constants; they are harmless.
+# DRY RUN (default, no writes):  paste this whole file as-is.
+# APPLY:                         change DRY_RUN to false below, then re-paste the whole file.
+#   Re-pasting prints "already initialized constant" warnings for the constants; they are harmless.
 #
 # Flags -- each one is a side effect or scope the original ask did not cover. Off until confirmed;
-# to approve one, type e.g. `EMAIL_CUSTOMERS_APPROVED = true` at the prompt before pasting:
+# to approve one, change it to true below before re-pasting:
 #   EMAIL_CUSTOMERS_APPROVED  <what it does and who has to agree>
 #
 # What APPLY does:
@@ -154,8 +152,8 @@ Save as `NN_<action>.rb` beside the inspect script.
 
 require 'json'
 
-DRY_RUN = true unless defined?(DRY_RUN)
-EMAIL_CUSTOMERS_APPROVED = false unless defined?(EMAIL_CUSTOMERS_APPROVED)
+DRY_RUN = true                    # APPLY: change to false, then re-paste. Plain constants only.
+EMAIL_CUSTOMERS_APPROVED = false
 
 TARGET_RECORD_ID = '<id>'
 TARGET           = '<value>'
@@ -219,8 +217,8 @@ at apply time; rescue per row so one bad row doesn't stop the rest.
 # <What this settles, the root cause, and the evidence: warehouse NN (N rows as of <as-of>),
 #  NN_diagnose (M live).>
 #
-# DRY RUN (default): paste this file.   APPLY: `DRY_RUN = false` at the prompt, then paste again.
-# Flags (off until confirmed; set at the prompt):
+# DRY RUN (default): paste this file as-is.   APPLY: change DRY_RUN to false below, then re-paste.
+# Flags (off until confirmed; change to true below before re-pasting):
 #   EMAIL_CUSTOMERS_APPROVED  the model's after_update_commit emails the customer. Default false:
 #                             delivery is suppressed for this run and restored in `ensure`.
 # What APPLY does, per candidate (derived via <Model#eligible?>, the same rule the app's writer uses):
@@ -231,8 +229,8 @@ at apply time; rescue per row so one bad row doesn't stop the rest.
 
 require 'json'
 
-DRY_RUN = true unless defined?(DRY_RUN)
-EMAIL_CUSTOMERS_APPROVED = false unless defined?(EMAIL_CUSTOMERS_APPROVED)
+DRY_RUN = true                    # APPLY: change to false, then re-paste. Plain constants only.
+EMAIL_CUSTOMERS_APPROVED = false
 
 WAREHOUSE_EXPECTED = <n>          # from warehouse-data, with its as-of
 MAX_CANDIDATES     = <cap>        # halt if the population is bigger than anything measured

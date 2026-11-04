@@ -58,11 +58,14 @@ _The Used by column is generated from the skills: `node scripts/settings_usage.j
 ## Conventions shared by every skill
 
 - **The user** is whoever runs the skill. Skills say "the user", never a name.
-- **Propose → wait → act** is the default posture. Mode-bearing skills share one autonomy
-  vocabulary: `--report-only` | `--approval-gated` | `--autonomous`. **Each skill states its own
-  default** in its Hard rules — most are report-only or approval-gated; `firefighter-loop` is the one
-  skill that defaults to autonomous, and lists its exceptions. An explicit flag from the user always
-  wins, and autonomy is granted per session, never assumed from an earlier one.
+- **Act, then report** is the default posture (`personal-CLAUDE.md` § *Autonomy: act, then
+  report*). Mode-bearing skills share one autonomy vocabulary: `--report-only` |
+  `--approval-gated` | `--autonomous`, and **`--autonomous` is the default** except where a
+  skill's whole job is a gated action (prod-script repair, vendor-api-probe creates, destructive
+  stack-surgery / worktree-create operations) — those stay draft-then-wait. No mode crosses the
+  gated list: posting where others see it, merges, production writes, product/architecture forks.
+  Questions get answers, not edits; pr-triage stays report-only on other people's PRs. An explicit
+  flag from the user always wins.
 - **Outputs of a PR review** (deep-pr-review, pr-review-graph, one-pager): the review doc goes to
   `<review_dir>/<repo>-pr<N>-review.md`; the graph and one-pager go to
   `<sandbox_dir>/tickets/<repo>-pr<N>/{review-graph,one-pager,screenshots}/`, linked from the review doc.

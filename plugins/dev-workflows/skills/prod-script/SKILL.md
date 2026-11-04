@@ -362,10 +362,10 @@ Separate `01_inspect.rb` (read-only) from `NN_<action>.rb`. Full templates: `REF
 and re-check, per-row rescue into an `errored` bucket). The spine:
 
 ```ruby
-# DRY RUN (default, no writes):  paste this file
-# APPLY:                         DRY_RUN = false   (at the prompt), then paste again
-DRY_RUN = true unless defined?(DRY_RUN)
-EMAIL_CUSTOMERS_APPROVED = false unless defined?(EMAIL_CUSTOMERS_APPROVED)  # one flag per uncovered side effect
+# DRY RUN (default, no writes):  paste this file as-is
+# APPLY:                         change DRY_RUN to false below, then re-paste the whole file
+DRY_RUN = true                     # plain constant — never `unless defined?` (Verified gotchas)
+EMAIL_CUSTOMERS_APPROVED = false   # one flag per uncovered side effect
 
 begin
   halt = ->(message) { raise "HALT: #{message}" }   # aborts the WHOLE body, because it is one statement
@@ -392,10 +392,9 @@ begin
 end
 ```
 
-Flags use `unless defined?` like `DRY_RUN`, so every flag is flipped the same way — at the prompt,
-before pasting again — and the file never has to be edited between dry run and apply. Re-pasting in
-the same session prints `already initialized constant` warnings for the plain constants; they're
-harmless, and the header says so.
+Flags are plain constants like `DRY_RUN`, so every flag is flipped the same way — edit the constant
+at the top of the file, then re-paste the whole script. Re-pasting in the same session prints
+`already initialized constant` warnings; they're harmless, and the header says so.
 
 Also required:
 - **Blast-radius sweep** — every other record matching the pattern, live-checked against the
@@ -518,9 +517,12 @@ wrapper for multi-line pastes. Rehearse with the same entry point the user will 
 - **The dry run re-confirmed the bug.** The verification block ran *after* the `if DRY_RUN` branch,
   so it printed the record's unchanged value. ⇒ Assign in memory before the branch; reset inside
   it.
-- **`DRY_RUN` is sticky across a console session.** With `DRY_RUN = true unless defined?(DRY_RUN)`,
-  once the user sets `DRY_RUN = false` it stays false for every later paste or `load` in that
-  session. Say so in the header; a fresh console resets it.
+- **Never `unless defined?` in a script — plain constants only.** Users who paste scripts change a
+  value by editing the script and re-pasting it, not by typing assignments at the prompt — a
+  correction that recurred across sessions. The guard also made `DRY_RUN` sticky:
+  once set to `false` it stayed false for every later paste or `load` in that console. Config
+  values (`DRY_RUN`, ids, batch sizes, flags) are literal constants at the top; changing one means
+  editing and re-pasting the script.
 - **Top-level `return` → `LocalJumpError`**; `abort`/`exit` kill the console session.
 - **An unguarded script loses all output when one section raises** — per-section `rescue`.
 - **The console runs pre-deploy code** → `ArgumentError` on a just-merged keyword argument.

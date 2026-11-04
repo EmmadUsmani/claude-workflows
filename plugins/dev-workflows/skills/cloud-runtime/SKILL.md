@@ -201,7 +201,7 @@ A cloud run must never be mistaken for locally-proven work. Four surfaces, four 
 1. **DMs** — first line carries `env: cloud`; the closing "Your move" names the exact local repro
    the user should run (`verify-in-app --depth browser <surface>`, or the `prod-script` path to
    paste).
-2. **PR body** — on an autonomous PR, the shared autonomous-PR banner first (ship-pr; quoted in
+2. **PR body** — on an unattended PR, the shared autonomous-PR banner first (ship-pr; quoted in
    **cloud-agent-work** §3), then this line after it: `UNVERIFIED in-app (cloud run)`. On a PR the
    user opened from a cloud session, the line alone, above the description. No before/after screenshots; say "no screenshots
    (cloud run — no browser)" rather than silently omitting the section.

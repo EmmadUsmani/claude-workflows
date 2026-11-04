@@ -15,7 +15,7 @@ If any skill is being rewritten by a separate agent right now (the orchestrator 
    - **Artifacts**: investigations that end in an explanation should offer `research-doc` / `visual-explainer`; anything that yields a reusable script should offer `sandbox-tool`.
    - **Orchestration**: multi-part work (stacks, several PRs, parallel investigations) should mention `agent-team` and the model policy.
    - **Entry routing**: the "When not to use / hand off" sections should form a consistent, complete routing table — a request that lands on the wrong skill must be redirected to the right one in ≤1 hop.
-3. Also flag: contradictions between skills (e.g. two different defaults for the same thing), missing "propose → wait → act" posture where a skill acts on its own, and any place a skill duplicates the cross-cutting rules file verbosely (a one-line pointer is enough).
+3. Also flag: contradictions between skills (e.g. two different defaults for the same thing), a skill that waits for approval on ungated execution, or acts on a gated action (posting where others see it, merges, production writes, product/architecture forks) without a draft-then-wait — see the cross-cutting rules file's autonomy section (act, then report) — and any place a skill duplicates the cross-cutting rules file verbosely (a one-line pointer is enough).
 
 ## Output: `INTEGRATION_PLAN.md` in `<workdir>`
 ```

@@ -18,16 +18,16 @@ paragraph in §6).
 
 Hard rules:
 - **Commit the verified work by default.** Shipping a PR means committing it: once the change is verified and self-reviewed, commit it (staged precisely — see Hygiene) and carry on to the PR. Leave work uncommitted **only when the user explicitly says so** ("don't commit yet", "leave it uncommitted so I can review the diff"); stop before pushing/opening the PR only on an explicit `--prepare-only`.
-- **One mode rule, three modes** (the vocabulary every mode-bearing skill in this plugin shares). Asking to ship a PR *is* the go-ahead for the work that creates it — branch, implement, verify, commit, push, open — so the default does not stop to ask before the PR exists. The mode governs everything *after* that:
-  - `--approval-gated` (**default**) — open the PR, then propose each further change to it (review fixes, force-pushes, body rewrites) and apply after an OK. Propose → wait → act. Watching is not fixing; answering is not implementing.
+- **Autonomous is the default mode — act, then report** (personal `CLAUDE.md` § *Autonomy: act, then report*). "Ship a PR" means branch, implement, verify, commit, push, open it ready-for-review, and fix or refute CI and bot findings on it, then report what you did and the calls you made. These stay gated even under `--autonomous` (draft, then wait for the user's word): replies on human reviewers' threads the user didn't name, a new PR or a stack restructure the user didn't ask for, and the merge. Three modes — the vocabulary every mode-bearing skill in this plugin shares:
+  - `--autonomous` (**default**) — fix/commit/push/reply without asking, never past the gated list above. Never merges.
+  - `--approval-gated` — open the PR, then propose each further change to it (review fixes, force-pushes, body rewrites) and apply after an OK. Only when the user asks to approve fixes.
   - `--report-only` — local work only: implement and verify, but do not commit, push or open anything; report the diff and the plan.
-  - `--autonomous` — also apply review fixes and push without asking. Only when the user says so explicitly. Never merges.
   - Orthogonal to those, `--prepare-only`: do the branch/implement/verify/screenshot/commit work and stop *before pushing or opening the PR*, leaving artifacts ready for a later run.
   - Pass the mode through unchanged when you hand off to **pr-triage** (§6).
 - **Self-review the diff against `code-style` before you present it.** Load **code-style** and walk its self-review checklist over your own changes — abstraction barriers, logic declared at the layer that owns it, declarative over imperative, one source of truth, names, comment budget. Fix what you can; raise anything you deliberately left as a numbered finding rather than shipping it silently. `code-review` (built-in) is the correctness pass; this is the shape pass — they are not substitutes.
 - **Never stage build artifacts or scratch files.** Stage only the source files you deliberately changed (see Hygiene). Never `git add -A` / `git add -u`.
 - **Shared local state is shared.** Another session may own the dev-server port, the shared browser profile, the dev DB, or the main checkout. Never work in a main checkout another session might be using, never reclaim a running server without explicit permission, and if you're interrupted mid-operation, stop and leave state exactly as-is.
-- **Autonomous PRs and their banners.** When invoked with `--autonomous` (for example by **firefighter-loop**, or by a cloud agent dispatched from an autonomous context), the PR opens ready-for-review with the autonomy banner below as the first line of the body and is never merged — approval moves from "before the PR exists" to "before it merges". Banner text, verbatim (fill the two placeholders):
+- **Unattended PRs and their banners.** When the run is unattended (dispatched by **firefighter-loop**, or by a cloud agent dispatched while the user is away), the PR opens ready-for-review with the autonomy banner below as the first line of the body and is never merged — approval moves from "before the PR exists" to "before it merges". Banner text, verbatim (fill the two placeholders):
 
   ```
   > [!WARNING]
@@ -289,8 +289,8 @@ body 404s the moment you do, permanently. Leave it, or replace the images in the
 After the PR opens, CI and the automated reviewers (Cursor Bugbot, CodeRabbit, cubic, Socket, whichever the repo has) run.
 **Run the pr-triage skill for this phase** — it carries the whole procedure: the comment-id-keyed
 watcher, the noise taxonomy, "did CI actually run", infra-outage vs real failure, verify-before-you-
-agree, replying in-thread and resolving via GraphQL, and re-triggering the bots. Its default is
-report-only; pass the mode the user gave you (§ hard rules). Two things it must not have to
+agree, replying in-thread and resolving via GraphQL, and re-triggering the bots. On a PR this run
+opened, its default is `--autonomous`; pass the mode the user gave you (§ hard rules). Two things it must not have to
 rediscover: **verify every bot claim against the current code before agreeing or refuting** (bots
 produce confident false positives), and **a passing check is not an approval** — confirm with
 `gh pr view <PR> --json reviewDecision,reviews`.

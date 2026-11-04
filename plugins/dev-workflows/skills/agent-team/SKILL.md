@@ -17,14 +17,15 @@ server, production — drop out of the brief for a library or CLI repo that has 
 
 ## Hard rules
 
-- **Propose → wait → act.** Present the partition and the wave plan *before* spawning anything.
-  Three modes: `--report-only` (investigate and partition, spawn nothing — plan and hold),
-  **`--approval-gated`, this skill's default** (approval per item before each wave — spawning is
-  the point of the skill, so it defaults one step past the plugin-wide `--report-only`), and
-  `--autonomous`.
-  Autonomy is granted per-session and explicitly ("this time you don't need my approval") — pass
-  `--autonomous` only when the user said so this session, and pass the user's mode through to any
-  skill you hand off to (`pr-triage` in particular).
+- **Act, then report** (personal `CLAUDE.md` § *Autonomy: act, then report*). Once the work is
+  agreed, partition it and spawn without waiting; the partition and wave plan go in your report,
+  not in a pre-approval round. Three modes: `--report-only` (investigate and partition, spawn
+  nothing — plan and hold), `--approval-gated` (approval per item before each wave — only when
+  the user asks for it), and **`--autonomous`, the default**. No mode lets agents past the gated
+  list (posting where others see it, merges, production writes, product/architecture forks) —
+  those come back to the user as drafts or decisions. A multi-PR feature that hasn't been planned
+  yet is planned with the user first; after their sign-off, run every wave autonomously. Pass the
+  mode through to any skill you hand off to (`pr-triage` in particular).
 - **Nothing happens in the main checkout.** Ever. Every agent gets an isolated worktree, and
   `<repo>` stays clean the whole time — assume it is shared with other live sessions.
 - **Agents commit their own verified work on their own worktree branch, by default** — staged

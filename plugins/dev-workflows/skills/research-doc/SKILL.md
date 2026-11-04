@@ -14,10 +14,11 @@ badly formatted one.
 
 ## Hard rules
 
-- **Propose → wait → act.** "Do a design doc first" / "don't code this yet" means the
-  deliverable is the doc. Implement only on explicit approval, and then in a fresh worktree,
-  **committed** by default (staged precisely) — uncommitted only if the user explicitly says so.
-  Pushing and the PR wait for their own go-ahead.
+- **The doc is the deliverable.** "Do a design doc first" / "don't code this yet" means write
+  the doc and make no code edits — a design is a plan, and plans wait for the user's sign-off.
+  Once the user approves implementation, carry it end to end without further gates: a fresh
+  worktree, **committed** by default (staged precisely), pushed, PR opened via **ship-pr** —
+  uncommitted only if the user explicitly says so.
 - **Verify, don't relay.** An Explore agent's report is a map, not a fact. Personally `Read` the
   1–2 core files it flagged, and re-derive from `git show origin/main:<path>` (or `git pull`
   first) — a stale local checkout has produced wrong doc claims. When a premise gets corrected,
