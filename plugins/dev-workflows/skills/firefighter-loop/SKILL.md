@@ -21,13 +21,13 @@ a port, REFERENCE §1), `<watch_channels>` (seeds the config once), `<state_repo
 `<sandbox_dir>`, `<sandbox_autocommit>`, `<worktrees_dir>`, `<cloud_agent>`, `<warehouse>`,
 `<ops_bot>`, and — only for the untested optional sources — `<issue_tracker>`, `<error_tracker>`.
 
-**This skill's default autonomy is `--autonomous`** — an explicit, per-skill exception to the
-plugin's report-first default, because running the loop is itself the grant (the start banner
+**This skill's default autonomy is `--autonomous`**, like the rest of the plugin (act, then
+report) — and because it runs unattended, running the loop is itself the grant (the start banner
 spells out what that covers). `--approval-gated` and `--report-only` are available below.
 
 ---
 
-## Standing exceptions to the propose → wait → act default
+## Standing rules for unattended runs
 
 The *only* place these apply, and only to items this loop dispatched — stated verbatim so a future
 run doesn't have to re-derive them:
