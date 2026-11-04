@@ -13,7 +13,9 @@ const ROOT = path.resolve(__dirname, '..', 'plugins', 'dev-workflows');
 const settingsPath = path.join(ROOT, 'SETTINGS.md');
 const settings = fs.readFileSync(settingsPath, 'utf8');
 const skillsDir = path.join(ROOT, 'skills');
-const skills = fs.readdirSync(skillsDir).sort();
+const skills = fs.readdirSync(skillsDir)
+  .filter((d) => fs.statSync(path.join(skillsDir, d)).isDirectory())
+  .sort();
 
 function walk(dir) {
   return fs.readdirSync(dir).sort().flatMap((name) => {
